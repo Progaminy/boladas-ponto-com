@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ business['name'] if business else 'Negócio' }} — Boladas-ponto-com{% endblock %}
+{% block content %}
+
+{% if business is none %}
+  <h1>Negócio não encontrado</h1>
+{% else %}
+  <div class="card" style="--cat-accent: {{ category.accent }};">
+    <span class="badge">{{ category.label }}</span>
+    <h1>{{ business['name'] }}</h1>
+    {% if business['description'] %}<p>{{ business['description'] }}</p>{% endif %}
+    {% if business['location'] %}<p class="muted">📍 {{ business['location'] }}</p>{% endif %}
+    <p class="muted">Contacto: {{ business['contact'] }}</p>
+  </div>
+
+  <h2>Produtos / posts</h2>
+  {% if not posts %}
+    <p class="muted">Este negócio ainda não tem posts publicados.</p>
+  {% else %}
+  <div class="history-grid">
+    {% for row in posts %}
+    <a href="/posts/{{ row['post_id'] }}" style="text-decoration:none; color:inherit;">
+      <div class="card" style="--cat-accent: {{ category.accent }}; padding: 0.6rem;">
+        {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
+        <p style="margin: 0.6rem 0 0.2rem; font-weight: 600;">{{ row['theme'] }}</p>
+        {% if row['price_mt'] %}<p class="muted" style="margin:0;">{{ row['price_mt'] }} MT</p>{% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endif %}
+
+{% endblock %}

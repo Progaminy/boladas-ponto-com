@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Registar — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Criar conta</h1>
+<p class="subtitle">Regista-te para publicar posts, gerir o teu negócio e ver o teu histórico.</p>
+
+{% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+
+<form method="post" action="/registar">
+  <div class="field">
+    <label for="display_name">Nome</label>
+    <input type="text" id="display_name" name="display_name" required maxlength="80" />
+  </div>
+  <div class="field">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" required maxlength="200" />
+  </div>
+  <div class="field">
+    <label for="password">Password (mín. 8 caracteres)</label>
+    <input type="password" id="password" name="password" required minlength="8" maxlength="200" />
+  </div>
+  <button type="submit">Registar</button>
+</form>
+<p class="muted">Já tens conta? <a href="/entrar">Entrar</a></p>
+{% endblock %}

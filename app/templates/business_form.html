@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Minha empresa — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>{% if business %}Editar empresa{% else %}Registar empresa{% endif %}</h1>
+<p class="subtitle">Regista o teu negócio para publicares posts em nome dele e teres um perfil público com os teus produtos.</p>
+
+{% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+
+<form method="post" action="/empresa">
+  <div class="field">
+    <label for="name">Nome da empresa *</label>
+    <input type="text" id="name" name="name" required maxlength="120" value="{{ business['name'] if business else '' }}" />
+  </div>
+  <div class="field">
+    <label for="category">Categoria *</label>
+    <select id="category" name="category" required>
+      {% for c in categories %}
+      <option value="{{ c.slug }}" {% if business and business['category'] == c.slug %}selected{% endif %}>{{ c.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="description">Descrição</label>
+    <textarea id="description" name="description" maxlength="300" rows="3">{{ business['description'] if business else '' }}</textarea>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label for="location">Localização</label>
+      <input type="text" id="location" name="location" maxlength="160" value="{{ business['location'] if business else '' }}" />
+    </div>
+    <div class="field">
+      <label for="contact">Contacto *</label>
+      <input type="text" id="contact" name="contact" required maxlength="60" value="{{ business['contact'] if business else '' }}" />
+    </div>
+  </div>
+  <button type="submit">{% if business %}Guardar alterações{% else %}Criar empresa{% endif %}</button>
+</form>
+
+{% if business %}
+<p style="margin-top:1rem;"><a href="/negocio/{{ business['business_id'] }}">Ver perfil público →</a></p>
+{% endif %}
+{% endblock %}

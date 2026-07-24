@@ -1,0 +1,66 @@
+import uuid
+
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import ValidationError
+
+from app import auth, db
+from app.models import UserCreate
+from app.templating import templates
+
+router = APIRouter()
+
+
+@router.get("/registar", response_class=HTMLResponse)
+def register_form(request: Request):
+    return templates.TemplateResponse(request, "register.html", {"error": None})
+
+
+@router.post("/registar", response_class=HTMLResponse)
+def register_submit(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    display_name: str = Form(...),
+):
+    try:
+        data = UserCreate(email=email, password=password, display_name=display_name)
+    except ValidationError as exc:
+        return templates.TemplateResponse(
+            request, "register.html", {"error": exc.errors()[0]["msg"]}, status_code=422
+        )
+
+    if db.get_user_by_email(data.email) is not None:
+        return templates.TemplateResponse(
+            request, "register.html", {"error": "Já existe uma conta com este email."},
+            status_code=409,
+        )
+
+    user_id = uuid.uuid4().hex
+    db.create_user(user_id, data.email, auth.hash_password(data.password), data.display_name)
+    auth.login_user(request, user_id)
+    return RedirectResponse("/criar", status_code=303)
+
+
+@router.get("/entrar", response_class=HTMLResponse)
+def login_form(request: Request):
+    return templates.TemplateResponse(request, "login.html", {"error": None})
+
+
+@router.post("/entrar", response_class=HTMLResponse)
+def login_submit(request: Request, email: str = Form(...), password: str = Form(...)):
+    email = email.strip().lower()
+    user = db.get_user_by_email(email)
+    if user is None or not auth.verify_password(password, user["password_hash"]):
+        return templates.TemplateResponse(
+            request, "login.html", {"error": "Email ou password incorretos."}, status_code=401
+        )
+
+    auth.login_user(request, user["user_id"])
+    return RedirectResponse("/criar", status_code=303)
+
+
+@router.post("/sair")
+def logout(request: Request):
+    auth.logout_user(request)
+    return RedirectResponse("/", status_code=303)

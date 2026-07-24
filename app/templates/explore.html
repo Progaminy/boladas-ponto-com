@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Explorar — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Explorar</h1>
+<p class="subtitle">Navega negócios por categoria e localização, e compara preços em Metical.</p>
+
+<form method="get" action="/explorar" style="flex-direction: row; gap: 0.75rem; margin-bottom: 1.5rem;">
+  <select name="categoria" style="flex: 1;">
+    <option value="">Todas as categorias</option>
+    {% for c in categories %}
+    <option value="{{ c.slug }}" {% if selected_category == c.slug %}selected{% endif %}>{{ c.label }}</option>
+    {% endfor %}
+  </select>
+  <input type="text" name="local" placeholder="Localização (bairro, cidade)" value="{{ location_query }}" style="flex: 1;" />
+  <button type="submit" style="flex: 0 0 auto;">Filtrar</button>
+</form>
+
+{% if not posts %}
+  <p class="muted">Nenhum post encontrado com estes filtros.</p>
+{% else %}
+<div class="history-grid">
+  {% for p in posts %}
+  {% set row = p.row %}
+  <a href="/posts/{{ row['post_id'] }}" style="text-decoration:none; color:inherit;">
+    <div class="card" style="--cat-accent: {{ p.category.accent }}; padding: 0.6rem;">
+      {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
+      <p style="margin: 0.6rem 0 0.2rem; font-weight: 600;">{{ row['theme'] }}</p>
+      <p class="muted" style="margin:0;">{{ row['business'] }}</p>
+      {% if row['price_mt'] %}<p style="margin:0.2rem 0; font-weight:600;">{{ row['price_mt'] }} MT</p>{% endif %}
+      {% if row['location'] %}<p class="muted" style="margin:0; font-size:0.8rem;">📍 {{ row['location'] }}</p>{% endif %}
+      <span class="badge" style="margin-top:0.4rem;">{{ p.category.label }}</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

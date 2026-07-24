@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Resultado — Boladas-ponto-com{% endblock %}
+{% block content %}
+
+{% if post is none %}
+  <h1>Post não encontrado</h1>
+  <p class="muted">Não existe nenhum post com o identificador <code>{{ post_id }}</code>.</p>
+{% else %}
+  <div class="card" style="--cat-accent: {{ category.accent }};">
+    <span class="badge status-{{ post['status'] }}">{{ post['status'] }}</span>
+    <span class="badge" style="margin-left:0.4rem;">{{ category.label }}</span>
+    <h1>{{ post['theme'] }}</h1>
+    <p class="muted">{{ post['business'] }} &middot; post_id: <code>{{ post_id }}</code></p>
+
+    {% if post['status'] == 'completed' %}
+      <img class="post-image" src="{{ post['image_url'] }}" alt="{{ post['theme'] }}" />
+      <p>{{ post['caption'] }}</p>
+      <p><strong>{{ post['call_to_action_generated'] }}</strong></p>
+      <p class="hashtags">
+        {% for h in (post['hashtags'] | from_json) %}#{{ h }} {% endfor %}
+      </p>
+      {% if post['price_mt'] %}<p>Preço: {{ post['price_mt'] }} MT</p>{% endif %}
+      {% if post['location'] %}<p>Localização: {{ post['location'] }}</p>{% endif %}
+      <p>Contacto do negócio: {{ post['contact'] }}</p>
+      <p><a href="/posts/{{ post_id }}/provenance">Ver detalhes da proveniência →</a></p>
+    {% elif post['status'] == 'failed' %}
+      <div class="error-box">
+        <strong>Falhou:</strong> {{ post['error'] }}
+      </div>
+    {% else %}
+      <p class="muted">Este post ainda está a ser processado (estado: {{ post['status'] }}). Atualiza a página.</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Proveniência — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Detalhes da proveniência</h1>
+<p class="muted">post_id: <code>{{ post_id }}</code></p>
+
+{% if fetch_error %}
+  <div class="error-box">{{ fetch_error }}</div>
+{% endif %}
+
+{% if provenance %}
+  <div class="card">
+    <p><strong>Estado:</strong> {{ provenance.status }}</p>
+    <p><strong>Criado em:</strong> {{ provenance.created_at }}</p>
+    <p><strong>Genblaze usado:</strong> {{ provenance.generation.genblaze_used }}</p>
+    <p><strong>Prompt:</strong> {{ provenance.generation.prompt }}</p>
+    <p><strong>Modelos:</strong></p>
+    <ul>
+      {% for m in provenance.generation.models %}
+      <li>{{ m.role }}: {{ m.provider }} / {{ m.model }}</li>
+      {% endfor %}
+    </ul>
+    <p><strong>Ficheiros no B2:</strong></p>
+    <ul>
+      <li>image.png &mdash; <code>{{ provenance.files.image.b2_key }}</code> &mdash; SHA-256: <code>{{ provenance.files.image.sha256 }}</code></li>
+      <li>caption.txt &mdash; <code>{{ provenance.files.caption.b2_key }}</code> &mdash; SHA-256: <code>{{ provenance.files.caption.sha256 }}</code></li>
+    </ul>
+    {% if provenance.errors %}
+      <p><strong>Erros:</strong></p>
+      <ul>{% for e in provenance.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+
+  <h2>Manifesto completo (provenance.json real, obtido do B2)</h2>
+  <pre class="json-block">{{ provenance | tojson(indent=2) }}</pre>
+{% elif not fetch_error %}
+  <p class="muted">Sem dados de proveniência para este post.</p>
+{% endif %}
+
+{% endblock %}

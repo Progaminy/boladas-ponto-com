@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Histórico — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Histórico</h1>
+<p class="subtitle">Gerações anteriores, com o estado real de armazenamento no B2.</p>
+
+{% if not posts %}
+  <p class="muted">Ainda não há posts. <a href="/criar">Criar o primeiro post</a>.</p>
+{% else %}
+<div class="history-grid">
+  {% for p in posts %}
+  {% set row = p.row %}
+  <a class="history-card" href="/posts/{{ row['post_id'] }}" style="text-decoration:none; color:inherit;">
+    <div class="card" style="--cat-accent: {{ p.category.accent }}; padding: 0.6rem;">
+      {% if row['thumbnail_key'] and row['image_url'] %}
+        <img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />
+      {% else %}
+        <div class="thumb-placeholder">sem miniatura</div>
+      {% endif %}
+      <p style="margin: 0.6rem 0 0.2rem; font-weight: 600;">{{ row['theme'] }}</p>
+      <p class="muted" style="margin: 0; font-size: 0.8rem;">{{ row['created_at'][:10] }}</p>
+      <span class="badge status-{{ row['status'] }}" style="margin-top:0.4rem;">{{ row['status'] }}</span>
+      <p class="muted" style="font-size:0.72rem; margin-top:0.4rem;">{{ row['post_id'] }}</p>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
