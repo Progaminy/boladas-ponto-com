@@ -36,6 +36,7 @@ cp .env.example .env
 B2_KEY_ID=...          # https://secure.backblaze.com/app_keys.htm
 B2_APP_KEY=...
 B2_BUCKET=pensador-sem-fronteiras-media
+B2_REGION=us-east-005
 GMI_API_KEY=...        # https://console.gmicloud.ai/
 SESSION_SECRET_KEY=... # python3 -c "import os; print(os.urandom(32).hex())"
 ```
@@ -45,7 +46,7 @@ Sem estas variáveis, a aplicação continua a arrancar e a servir as páginas, 
 ## Correr localmente
 
 ```bash
-vicorn aupp.main:app --reload
+uuvicorn app.main:app --reload
 ```
 http://127.0.0.1:8000
 
