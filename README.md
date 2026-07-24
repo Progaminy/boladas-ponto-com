@@ -46,7 +46,7 @@ Sem estas variáveis, a aplicação continua a arrancar e a servir as páginas, 
 ## Correr localmente
 
 ```bash
-uuvicorn app.main:app --reload
+uvicorn app.main:app --reload
 ```
 http://127.0.0.1:8000
 
