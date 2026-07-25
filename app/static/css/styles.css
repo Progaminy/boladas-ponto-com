@@ -240,3 +240,12 @@ a { color: var(--accent); }
 }
 .verify-files .vf-ok { color: #4ade80; }
 .verify-files .vf-bad { color: #f87171; }
+
+/* --- página de estado --- */
+.status-check.status-ok { border-left-color: #4ade80; }
+.status-check.status-failing { border-left-color: #f87171; }
+.status-check.status-not_configured { border-left-color: #f0c040; }
+
+.badge.status-badge-ok { background: #4ade80; }
+.badge.status-badge-failing { background: #f87171; }
+.badge.status-badge-not_configured { background: #f0c040; }

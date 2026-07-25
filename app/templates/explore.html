@@ -16,7 +16,19 @@
 </form>
 
 {% if not posts %}
-  <p class="muted">Nenhum post encontrado com estes filtros.</p>
+  {% if selected_category or location_query %}
+    <div class="card">
+      <p>Nenhum post encontrado com estes filtros.</p>
+      <p class="muted">Tenta outra categoria ou localização, ou <a href="/explorar">ver tudo</a>.</p>
+    </div>
+  {% else %}
+    <div class="card">
+      <h2 style="margin-top:0;">Ainda não há nada por aqui</h2>
+      <p class="muted">Sê o primeiro a publicar. Descreve o que vendes e a Boladas
+      gera a imagem, a legenda e as hashtags por ti.</p>
+      <p><a href="/criar" class="btn-primary">Criar o meu primeiro post</a></p>
+    </div>
+  {% endif %}
 {% else %}
 <div class="history-grid">
   {% for p in posts %}

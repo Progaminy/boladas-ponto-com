@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Estado do sistema — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Estado do sistema</h1>
+<p class="subtitle">
+  Estas verificações contactam mesmo os serviços externos neste momento — não
+  se limitam a confirmar que existe uma variável de ambiente. Quando algo
+  falha, a mensagem apresentada é a do próprio serviço.
+</p>
+
+{% for check in checks %}
+<div class="card status-check status-{{ check.state }}">
+  <p style="margin:0 0 0.4rem;">
+    <strong>{{ check.name }}</strong>
+    <span class="badge status-badge-{{ check.state }}">
+      {% if check.state == 'ok' %}operacional
+      {% elif check.state == 'failing' %}com problema
+      {% else %}não configurado{% endif %}
+    </span>
+  </p>
+  <p class="muted" style="margin:0;">{{ check.detail }}</p>
+</div>
+{% endfor %}
+
+<div class="card">
+  <p class="muted" style="margin:0;">
+    Um serviço marcado como <strong>não configurado</strong> não impede a
+    aplicação de arrancar: as páginas continuam a funcionar, mas qualquer
+    operação que dependa dele falha de forma explícita, com o erro real, em
+    vez de simular um resultado.
+  </p>
+</div>
+{% endblock %}

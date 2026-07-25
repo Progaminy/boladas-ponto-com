@@ -5,12 +5,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import APP_NAME, APP_VERSION, SESSION_SECRET_KEY, b2_configured, gmi_configured
 from app.db import init_db
+from app.diagnostics import run_all_checks
+from app.templating import templates
 from app.routers import (
     auth,
     business,
@@ -53,9 +56,18 @@ app.include_router(provenance.router)
 
 @app.get("/health")
 def health() -> dict:
+    """Health-check leve (usado pelo Render): não contacta serviços externos,
+    para não falhar o deploy por causa de uma dependência de terceiros."""
     return {
         "app": APP_NAME,
         "version": APP_VERSION,
         "b2_configured": b2_configured(),
         "gmi_configured": gmi_configured(),
     }
+
+
+@app.get("/estado", response_class=HTMLResponse)
+def status_page(request: Request):
+    """Diagnóstico real: exercita mesmo as ligações externas e mostra o erro
+    concreto quando algo não funciona."""
+    return templates.TemplateResponse(request, "status.html", {"checks": run_all_checks()})
