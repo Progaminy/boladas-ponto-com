@@ -8,7 +8,13 @@ Serve tanto empresas com marca própria (estilizadas por categoria de negócio, 
 
 ## Princípio: Nunca fingir
 
-Um post só aparece como `completed` depois de o Genblaze gerar realmente a imagem/legenda e de cada ficheiro ser confirmado no Backblaze B2 (via `head()` pós-upload). Falhas de geração ou de upload aparecem como `failed`, com o erro real — nunca como sucesso simulado.
+Um post só aparece como `completed` depois de o Genblaze gerar realmente a imagem e a legenda, e de cada ficheiro ser confirmado no Backblaze B2 — não por um simples `head()`, mas descarregando os bytes de volta e comparando o SHA-256 com o que foi enviado. Falhas de geração ou de upload aparecem como `failed`, com o erro real — nunca como sucesso simulado.
+
+Isto vale para o resto da aplicação:
+
+- **A proveniência é auditável, não decorativa.** Qualquer pessoa (sem conta) pode carregar em *Verificar contra o Backblaze B2 agora* na página de proveniência: a aplicação vai buscar os ficheiros ao bucket naquele momento, recalcula o hash e mostra o resultado por ficheiro. Se alguém substituir um objeto no bucket mantendo a chave, aparece como não conferindo — há um teste que faz exatamente isso.
+- **O diagnóstico testa mesmo as ligações.** `/estado` autentica-se contra o B2 e consulta o catálogo do GMICloud, em vez de se limitar a confirmar que existem variáveis de ambiente. Uma chave válida é reportada como válida — e com a ressalva explícita de que isso não implica saldo disponível.
+- **Capacidades que não existem não são simuladas.** Não há moderação visual automática de fotos/vídeo porque não há uma API de visão verificada disponível; em vez de fingir que há, essa lacuna é coberta por reporte com revisão humana e está documentada como tal.
 
 ## Stack
 
@@ -26,6 +32,9 @@ Um post só aparece como `completed` depois de o Genblaze gerar realmente a imag
 - **Moderação**: lista de bloqueio de texto (sem custo, aplicada antes de gastar créditos GMICloud a gerar o post) + classificação por IA via `chat()` quando há saldo GMICloud; qualquer utilizador pode reportar um post (incluindo fotos/vídeo, que não têm verificação visual automática — não existe API de visão verificada disponível), ocultando-o até um admin decidir em `/admin/moderacao`.
 - **Categorias e cor da plataforma**: cor oficial roxo escuro na interface; ~29 categorias com cores coerentes por omissão (ex.: farmácia branco, eletricidade laranja, mecânica azul-escuro); qualquer categoria fora da lista é aceite tal como escrita (nunca bloqueada), e há um botão para sugerir a categoria automaticamente a partir da descrição via IA (também depende de saldo GMICloud).
 - **Fotos de perfil/capa**: uma foto de perfil e uma de capa para a conta pessoal, e o mesmo por cada empresa registada — com perfil público em `/utilizador/<id>` e `/negocio/<id>`.
+- **Verificação de proveniência ao vivo**: `POST /posts/<id>/verificar` (público) volta a descarregar do B2 cada ficheiro declarado no manifesto e recalcula o SHA-256, com resultado por ficheiro.
+- **Diagnóstico do sistema**: `/estado` exercita mesmo as ligações ao B2 e ao GMICloud e mostra o erro real do serviço quando algo falha.
+- **Interface móvel**: a maioria dos acessos em Moçambique é por telemóvel, por isso o layout é responsivo (campos empilham, navegação quebra em linhas, filtros ficam a largura total).
 
 ## Instalação
 
@@ -63,15 +72,22 @@ http://127.0.0.1:8000
 
 
 Sem sessão:
-- `http://localhost:8000/registar`, `http://localhost:8000/entrar` — criar conta / iniciar sessão
-- `http://localhost:8000/health` — estado da configuração (B2/GMICloud ligados ou não)
-- `http://localhost:8000/posts/<post_id>` e `/posts/<post_id>/provenance` — resultado e proveniência de um post, partilháveis (ex.: WhatsApp) e verificáveis por qualquer pessoa, incluindo os jurados, sem precisar de conta
+- `/` — página de apresentação (quem já tem sessão vai direto para `/explorar`)
+- `/registar`, `/entrar` — criar conta / iniciar sessão
+- `/termos` — Termos de Uso
+- `/estado` — diagnóstico real das ligações ao B2 e ao GMICloud
+- `/health` — health-check leve para o Render (não contacta serviços externos)
+- `/posts/<post_id>` e `/posts/<post_id>/provenance` — resultado e proveniência de um post, partilháveis (ex.: WhatsApp) e verificáveis por qualquer pessoa, incluindo os jurados, sem precisar de conta
+- `POST /posts/<post_id>/verificar` — verificação ao vivo do SHA-256 contra o B2
 
 Requer sessão (redireciona para `/entrar` se não autenticado):
-- `http://localhost:8000/explorar` — galeria de negócios, filtrável por categoria e localização
-- `http://localhost:8000/criar` — formulário de criação de post
-- `http://localhost:8000/empresa` — registar/editar o negócio próprio; `/negocio/<business_id>` — perfil do negócio
-- `http://localhost:8000/historico` — histórico privado dos meus posts (inclui `pending`/`failed`)
+- `/explorar` — galeria de negócios, filtrável por categoria e localização
+- `/criar` — formulário de criação de post
+- `/empresa` — lista das minhas empresas; `/empresa/nova` — registar outra; `/negocio/<business_id>` — perfil público
+- `/perfil/fotos` e `/empresa/<id>/fotos` — fotos de perfil e capa
+- `/historico` — histórico privado dos meus posts (inclui `pending`/`failed`)
+- `/mensagens`, `/transacoes` — conversas e estado das compras/vendas
+- `/admin/moderacao` — fila de revisão (apenas admins)
 
 ## Testes
 
@@ -79,34 +95,53 @@ Requer sessão (redireciona para `/entrar` se não autenticado):
 pytest -q
 ```
 
-Os testes cobrem a formatação das chaves e verificação (tamanho + SHA-256 remoto) de upload no B2 (com um backend simulado, incluindo um cenário de corrupção silenciosa), o schema do `provenance.json`, as funções puras do pipeline (construção de prompts, parsing de JSON, redimensionamento de imagem para 1080×1080), a sobreposição de texto na imagem, o limite diário de geração, e o fluxo de autenticação/sessão (registo, login, proteção de rotas) com uma base de dados SQLite isolada por teste. Não exercitam chamadas reais ao GMICloud/B2 — para isso é necessário `.env` com credenciais reais e correr a aplicação manualmente.
+83 testes, todos sem custo e sem tocar em serviços externos (backend B2 simulado e base de dados SQLite isolada por teste). Cobrem, entre outros:
+
+- upload no B2 verificado por tamanho **e** SHA-256 remoto, incluindo um cenário de corrupção silenciosa (mesmo tamanho, conteúdo diferente);
+- verificação de proveniência ao vivo, incluindo deteção de um objeto adulterado no bucket e relato honesto de um ficheiro em falta;
+- schema do `provenance.json` e ausência de credenciais no manifesto;
+- funções puras do pipeline (prompts, parsing de JSON, redimensionamento para 1080×1080) e a sobreposição de texto na imagem;
+- validação real de média (Pillow para imagens; um vídeo de 35s gerado com `ffmpeg` é rejeitado por exceder os 30s);
+- autenticação, proteção de rotas, limite diário de geração, máquina de estados das transações e moderação;
+- diagnóstico, incluindo a garantia de que `/health` não contacta serviços externos.
+
+Há ainda um teste de integração **real** (`tests/test_integration_live.py`), desativado por omissão para nunca gastar créditos sem intenção:
+
+```bash
+set -a && source .env && set +a
+RUN_LIVE_INTEGRATION_TESTS=1 pytest -q tests/test_integration_live.py -v -s
+```
+
+Gera um post verdadeiro via GMICloud, envia-o para o bucket real, confirma os hashes e remove o post de teste no fim.
 
 ## Estrutura
 
 ```
 app/
-├── main.py            # app FastAPI, SessionMiddleware, monta routers, health-check
+├── main.py            # app FastAPI, SessionMiddleware, routers, /health e /estado
 ├── config.py           # variáveis de ambiente, contacto da plataforma
 ├── models.py            # Pydantic: PostInput, UserCreate, BusinessInput, PostStatus...
 ├── categories.py         # ~29 categorias de negócio → cor/estilo de imagem
-├── category_classify.py  # sugestão de categoria via IA (opcional, GMICloud)
-├── auth.py                # hash de password (bcrypt), sessão, get_current_user
-├── db.py                   # SQLite: users, businesses (várias por user), posts,
-│                            # messages, product_media, transactions, reports
-├── pipeline.py               # geração real via Genblaze + GMICloud
-├── image_compose.py           # sobrepõe nome/preço/CTA na imagem com Pillow
-├── media_validate.py           # valida fotos/vídeo (Pillow + ffprobe), limites reais
+├── category_classify.py   # sugestão de categoria via IA (opcional, GMICloud)
+├── auth.py                 # hash de password (bcrypt), sessão, get_current_user
+├── db.py                    # SQLite: users, businesses (várias por user), posts,
+│                             # messages, product_media, transactions, reports
+├── pipeline.py                # geração real via Genblaze + GMICloud
+├── image_compose.py            # sobrepõe nome/preço/CTA na imagem com Pillow
+├── media_validate.py            # valida fotos/vídeo (Pillow + ffprobe), limites reais
 ├── moderation.py                 # lista de bloqueio de texto + classificação IA opcional
-├── storage.py                      # upload/verificação (SHA-256 remoto) no B2
-├── provenance.py                     # montagem do provenance.json
+├── storage.py                     # upload/verificação (SHA-256 remoto) no B2
+├── provenance.py                   # montagem do provenance.json
+├── verify.py                        # verificação ao vivo do manifesto contra o B2
+├── diagnostics.py                    # testa mesmo as ligações externas (/estado)
 ├── routers/                           # auth, business, explore, messages, media,
 │                                        transactions, moderation, profile, posts,
 │                                        history, provenance
-├── templates/                          # registar, entrar, termos, empresa (lista/
-│                                         criar/editar), explorar, criar, resultado,
-│                                         histórico, proveniência, inbox, thread,
-│                                         media_form, transactions, admin_moderation,
-│                                         photos_form, user_profile
+├── templates/                          # landing, registar, entrar, termos, estado,
+│                                         empresa (lista/criar/editar), explorar, criar,
+│                                         resultado, histórico, proveniência, inbox,
+│                                         thread, media_form, transactions,
+│                                         admin_moderation, photos_form, user_profile
 └── static/                            # css/js/fonts (DejaVu, para o overlay)
 tests/                                  # pytest
 ```
@@ -155,23 +190,28 @@ isto é aceitável, mas é uma limitação a resolver antes de um uso real em pr
 
 ## Estado atual
 
-MVP funcional: registo/login, perfil de negócio opcional, criação de post que recebe o
-briefing, valida, gera imagem + legenda + hashtags via Genblaze/GMICloud, sobrepõe nome do
-negócio/preço/CTA na imagem, calcula e verifica o SHA-256 contra o conteúdo real no B2, monta
-o manifesto de proveniência (com o manifesto nativo do Genblaze embutido), histórico privado
-por utilizador, galeria (com sessão) para explorar/comparar negócios por categoria e
-localização, e um limite diário de geração por utilizador. Qualquer erro inesperado durante
-a geração ou o upload marca o post como `failed` com a causa real — nunca fica preso num
-estado intermédio. Termos de Uso obrigatórios no registo, mensagens internas ligadas ao
-post/produto (com canal separado para contactar a plataforma), upload de até 4 fotos + 1
-vídeo de 30s reais por produto (com validação real de imagem/duração), e rastreio de estado
-de transação entre comprador e vendedor (pendente → vendido → recebido, com opção de pedir
-mediação da equipa — ver nota sobre pagamentos abaixo). Moderação de texto (lista de bloqueio
-+ classificação por IA quando há saldo GMICloud) aplicada antes da geração, mais um mecanismo
-de reportar conteúdo (cobre texto, fotos e vídeo) com fila de revisão humana em
-`/admin/moderacao` — ver nota sobre moderação visual abaixo.
-Por fazer: gerar um post real de ponta a ponta com credenciais reais, deploy para URL
-pública, conta de demonstração para os jurados, vídeo de demonstração.
+**Verificado a funcionar contra os serviços reais:** a ligação ao Backblaze B2 está
+operacional (upload, verificação por SHA-256 e remoção testados com as credenciais reais), e
+a chave do GMICloud é válida — o catálogo devolve 78 modelos, incluindo os que a aplicação
+usa por omissão.
+
+**Implementado:** registo/login com Termos de Uso, várias empresas por utilizador com perfis
+e fotos, formulário de criação que fica simples para uma venda pessoal e completo para uma
+empresa, geração via Genblaze/GMICloud com sobreposição determinística de nome/preço/CTA,
+armazenamento no B2 com verificação por hash, manifesto de proveniência (com o manifesto
+nativo do Genblaze embutido) e verificação ao vivo desse manifesto, histórico privado,
+galeria com filtros, mensagens ligadas ao produto, média real do produto (4 fotos + vídeo de
+30s validados), rastreio de transações, moderação com revisão humana, diagnóstico do sistema
+e interface responsiva.
+
+**Bloqueado por saldo, não por código:** a conta GMICloud está sem créditos, o que devolve
+`402 Insufficient credits` tanto na geração de imagem como no `chat()`. Está confirmado que
+a aplicação lida com isso corretamente — o post fica `failed` com a mensagem real do
+serviço, sem estados presos nem sucessos simulados. Assim que houver saldo, a geração real
+ponta a ponta pode ser confirmada com o teste de integração acima, sem alterar código.
+
+**Por fazer:** gerar os posts reais de demonstração (depende do saldo), deploy para a URL
+pública, conta de demonstração para os jurados e o vídeo de apresentação.
 
 **Nota sobre pagamentos:** o Boladas-ponto-com não processa nem retém dinheiro de
 utilizadores. Um mecanismo desse tipo (custódia/escrow) exigiria licenciamento como
