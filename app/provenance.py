@@ -43,8 +43,19 @@ def build_provenance(
         "generation": {
             "prompt": image_result.prompt,
             "models": [
-                {"provider": image_result.provider, "model": image_result.model, "role": "image"},
-                {"provider": "gmicloud", "model": caption_result.model, "role": "caption"},
+                {
+                    "provider": image_result.provider,
+                    "model": image_result.model,
+                    "role": "image",
+                },
+                # o provedor da legenda vem do resultado real, não fixo: com
+                # múltiplos provedores, assumir um deles tornaria o manifesto
+                # falso quando o outro fosse usado.
+                {
+                    "provider": caption_result.provider,
+                    "model": caption_result.model,
+                    "role": "caption",
+                },
             ],
             "parameters": image_result.params,
             "genblaze_used": True,

@@ -10,7 +10,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.config import APP_NAME, APP_VERSION, SESSION_SECRET_KEY, b2_configured, gmi_configured
+from app.config import (
+    APP_NAME,
+    APP_VERSION,
+    SESSION_SECRET_KEY,
+    b2_configured,
+    gmi_configured,
+    vertex_configured,
+)
 from app.db import init_db
 from app.diagnostics import run_all_checks
 from app.templating import templates
@@ -62,6 +69,7 @@ def health() -> dict:
         "app": APP_NAME,
         "version": APP_VERSION,
         "b2_configured": b2_configured(),
+        "vertex_configured": vertex_configured(),
         "gmi_configured": gmi_configured(),
     }
 

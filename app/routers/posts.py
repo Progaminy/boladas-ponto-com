@@ -14,7 +14,7 @@ from app.category_classify import suggest_category
 from app.config import MAX_POSTS_PER_USER_PER_DAY
 from app.image_compose import add_business_overlay
 from app.models import PostInput, PostStatus, PublisherType
-from app.moderation import check_text_blocklist
+from app.moderation import check_text_blocklist, check_text_with_ai
 from app.pipeline import GenerationError, generate_caption, generate_image
 from app.provenance import build_caption_txt, build_provenance
 from app.storage import StorageError, post_key, upload_and_verify
@@ -135,13 +135,31 @@ def create_post(
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
 
-    blocked_terms = check_text_blocklist(
+    moderation_texts = (
         post_input.theme, post_input.business, post_input.target_audience,
         post_input.objective, post_input.call_to_action,
     )
+
+    # 1ª camada: lista de bloqueio local, sem custo, antes de gastar geração.
+    blocked_terms = check_text_blocklist(*moderation_texts)
     if blocked_terms:
         return JSONResponse(
             {"error": "Conteúdo não permitido pelos Termos de Uso. Revê o texto do post."},
+            status_code=422,
+        )
+
+    # 2ª camada: classificação por IA. Devolve None quando não conseguiu
+    # verificar — nesse caso seguimos em frente, porque "não verificado" não
+    # é motivo para bloquear um anúncio legítimo (o reporte cobre o resto).
+    ai_check = check_text_with_ai(*moderation_texts)
+    if ai_check and ai_check["flagged"]:
+        return JSONResponse(
+            {
+                "error": (
+                    "O conteúdo foi sinalizado pela moderação: "
+                    + (ai_check["reason"] or "possível violação")
+                )
+            },
             status_code=422,
         )
 

@@ -1,22 +1,26 @@
 """Diagnóstico real das dependências externas.
 
-A diferença face a um simples `if os.environ.get(...)`: aqui as ligações
-são mesmo exercitadas. Ter uma chave configurada não significa que ela
-funcione — pode estar errada, expirada ou sem saldo. Esta página diz qual
-dos casos é, com a mensagem real do serviço.
+A diferença face a um simples `if os.environ.get(...)`: aqui as ligações são
+mesmo exercitadas. Ter uma chave configurada não significa que ela funcione —
+pode estar errada, expirada ou sem saldo. Esta página diz qual dos casos é,
+com a mensagem real do serviço.
 
-As verificações usadas são operações de leitura baratas (listar modelos,
-consultar um objeto), nunca gerações que gastem créditos."""
+As verificações usadas são operações de leitura baratas (consultar um modelo,
+listar o catálogo, consultar um objeto), nunca gerações que gastem créditos."""
 
 from dataclasses import dataclass
 
 from app.config import (
     B2_BUCKET,
+    GEMINI_CHAT_MODEL,
+    GEMINI_IMAGE_MODEL,
     GMI_CHAT_MODEL,
     GMI_IMAGE_MODEL,
     b2_configured,
     gmi_configured,
+    vertex_configured,
 )
+from app.gemini_provider import get_vertex_client
 
 
 @dataclass
@@ -63,10 +67,43 @@ def check_b2() -> Check:
         )
 
 
+def check_vertex_express() -> Check:
+    if not vertex_configured():
+        return Check(
+            name="Gemini / Vertex AI Express",
+            configured=False,
+            ok=False,
+            detail="VERTEX_EXPRESS_API_KEY não está definida no ambiente.",
+        )
+
+    try:
+        client = get_vertex_client()
+        # Operações de leitura: confirmam autenticação e acesso aos modelos
+        # sem gerar conteúdo nem gastar uma geração.
+        client.models.get(model=GEMINI_CHAT_MODEL)
+        client.models.get(model=GEMINI_IMAGE_MODEL)
+        return Check(
+            name="Gemini / Vertex AI Express",
+            configured=True,
+            ok=True,
+            detail=(
+                f"Chave aceite. Modelos disponíveis: {GEMINI_CHAT_MODEL} "
+                f"(texto/visão) e {GEMINI_IMAGE_MODEL} (imagem)."
+            ),
+        )
+    except Exception as exc:
+        return Check(
+            name="Gemini / Vertex AI Express",
+            configured=True,
+            ok=False,
+            detail=f"Credencial presente, mas o acesso real falhou: {exc}",
+        )
+
+
 def check_gmicloud() -> Check:
     if not gmi_configured():
         return Check(
-            name="GMICloud (Genblaze)",
+            name="GMICloud (fallback)",
             configured=False,
             ok=False,
             detail="GMI_API_KEY não está definida no ambiente.",
@@ -77,45 +114,49 @@ def check_gmicloud() -> Check:
     from app.config import GMI_API_KEY
 
     try:
-        resp = httpx.get(
+        response = httpx.get(
             "https://api.gmi-serving.com/v1/models",
             headers={"Authorization": f"Bearer {GMI_API_KEY}"},
             timeout=15,
         )
     except Exception as exc:
         return Check(
-            name="GMICloud (Genblaze)",
-            configured=True,
-            ok=False,
-            detail=f"Não foi possível contactar o GMICloud: {exc}",
+            "GMICloud (fallback)", True, False,
+            f"Não foi possível contactar o GMICloud: {exc}",
         )
 
-    if resp.status_code == 401:
-        return Check("GMICloud (Genblaze)", True, False, "Chave rejeitada (401 não autorizado).")
-    if resp.status_code != 200:
+    if response.status_code == 401:
         return Check(
-            "GMICloud (Genblaze)", True, False,
-            f"Resposta inesperada do catálogo de modelos ({resp.status_code}).",
+            "GMICloud (fallback)", True, False, "Chave rejeitada (401 não autorizado)."
+        )
+    if response.status_code != 200:
+        return Check(
+            "GMICloud (fallback)", True, False,
+            f"Resposta inesperada do catálogo ({response.status_code}).",
         )
 
-    ids = {m.get("id") for m in resp.json().get("data", [])}
-    missing = [m for m in (GMI_IMAGE_MODEL, GMI_CHAT_MODEL) if m not in ids and "/" in m]
+    ids = {m.get("id") for m in response.json().get("data", [])}
+    missing = [
+        model
+        for model in (GMI_IMAGE_MODEL, GMI_CHAT_MODEL)
+        if model not in ids and "/" in model
+    ]
     if missing:
         return Check(
-            "GMICloud (Genblaze)", True, False,
-            f"Chave válida, mas os modelos configurados não constam do catálogo: {', '.join(missing)}.",
+            "GMICloud (fallback)", True, False,
+            "Chave válida, mas faltam modelos configurados: " + ", ".join(missing),
         )
 
     return Check(
-        name="GMICloud (Genblaze)",
+        name="GMICloud (fallback)",
         configured=True,
         ok=True,
         detail=(
-            f"Chave válida, {len(ids)} modelos disponíveis. Nota: uma chave válida não "
-            "garante saldo — a geração só é confirmada ao criar um post real."
+            f"Chave válida, {len(ids)} modelos disponíveis. Nota: uma chave válida "
+            "não garante saldo — a geração só é confirmada ao criar um post real."
         ),
     )
 
 
 def run_all_checks() -> list[Check]:
-    return [check_b2(), check_gmicloud()]
+    return [check_b2(), check_vertex_express(), check_gmicloud()]

@@ -12,6 +12,7 @@ from app.media_validate import (
     validate_photo,
     validate_video,
 )
+from app.moderation import check_media_with_ai
 from app.storage import StorageError, post_key, upload_and_verify
 from app.templating import templates
 
@@ -101,6 +102,16 @@ async def media_upload(
         for photo in photos:
             data = await photo.read()
             validate_photo(data, photo.content_type)
+            # Moderação visual real (Gemini). Devolve None quando não foi
+            # possível verificar — nesse caso não bloqueia, e o conteúdo fica
+            # coberto pelo mecanismo de reporte com revisão humana.
+            moderation = check_media_with_ai(data, photo.content_type)
+            if moderation and moderation["flagged"]:
+                return _media_form_error(
+                    request, post, 422,
+                    "Foto não permitida pela moderação: "
+                    + (moderation["reason"] or "possível violação"),
+                )
             ext = _EXT_BY_CONTENT_TYPE[photo.content_type]
             key = post_key(post_id, f"media/photo-{uuid.uuid4().hex[:8]}.{ext}")
             uploaded = upload_and_verify(key, data, photo.content_type)
@@ -113,6 +124,13 @@ async def media_upload(
         if has_video:
             data = await video.read()
             validate_video(data, video.content_type)
+            moderation = check_media_with_ai(data, video.content_type)
+            if moderation and moderation["flagged"]:
+                return _media_form_error(
+                    request, post, 422,
+                    "Vídeo não permitido pela moderação: "
+                    + (moderation["reason"] or "possível violação"),
+                )
             ext = _EXT_BY_CONTENT_TYPE[video.content_type]
             key = post_key(post_id, f"media/video-{uuid.uuid4().hex[:8]}.{ext}")
             uploaded = upload_and_verify(key, data, video.content_type)

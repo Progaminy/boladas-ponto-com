@@ -15,6 +15,14 @@ services:
         value: pensador-sem-fronteiras-media
       - key: B2_REGION
         value: us-east-005
+      - key: AI_PROVIDER
+        value: auto
+      - key: VERTEX_EXPRESS_API_KEY
+        sync: false
+      - key: GEMINI_IMAGE_MODEL
+        value: gemini-2.5-flash-image
+      - key: GEMINI_CHAT_MODEL
+        value: gemini-2.5-flash
       - key: GMI_API_KEY
         sync: false
       - key: GMI_IMAGE_MODEL
