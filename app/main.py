@@ -18,6 +18,7 @@ from app.routers import (
     history,
     media,
     messages,
+    moderation,
     posts,
     provenance,
     transactions,
@@ -42,6 +43,7 @@ app.include_router(explore.router)
 app.include_router(messages.router)
 app.include_router(media.router)
 app.include_router(transactions.router)
+app.include_router(moderation.router)
 app.include_router(posts.router)
 app.include_router(history.router)
 app.include_router(provenance.router)

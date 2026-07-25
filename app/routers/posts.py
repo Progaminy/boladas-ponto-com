@@ -13,6 +13,7 @@ from app.categories import get_category, list_categories
 from app.config import MAX_POSTS_PER_USER_PER_DAY
 from app.image_compose import add_business_overlay
 from app.models import PostInput, PostStatus, PublisherType
+from app.moderation import check_text_blocklist
 from app.pipeline import GenerationError, generate_caption, generate_image
 from app.provenance import build_caption_txt, build_provenance
 from app.storage import StorageError, post_key, upload_and_verify
@@ -94,6 +95,16 @@ def create_post(
         )
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
+
+    blocked_terms = check_text_blocklist(
+        post_input.theme, post_input.business, post_input.target_audience,
+        post_input.objective, post_input.call_to_action,
+    )
+    if blocked_terms:
+        return JSONResponse(
+            {"error": "Conteúdo não permitido pelos Termos de Uso. Revê o texto do post."},
+            status_code=422,
+        )
 
     user_business = db.get_business_by_user(user["user_id"])
     business_id = (
@@ -204,8 +215,20 @@ def result_page(request: Request, post_id: str):
     row = db.get_post(post_id)
     if row is None:
         return templates.TemplateResponse(
-            request, "result.html", {"post": None, "post_id": post_id}, status_code=404
+            request, "result.html", {"post": None, "post_id": post_id, "moderated": False},
+            status_code=404,
         )
+
+    user = get_current_user(request)
+    is_owner = user is not None and user["user_id"] == row["user_id"]
+    is_admin = bool(user and user["is_admin"])
+
+    if row["moderation_status"] != "approved" and not is_owner and not is_admin:
+        return templates.TemplateResponse(
+            request, "result.html", {"post": None, "post_id": post_id, "moderated": True},
+            status_code=403,
+        )
+
     category = get_category(row["category"])
     media = db.list_product_media(post_id)
     return templates.TemplateResponse(

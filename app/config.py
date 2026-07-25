@@ -33,6 +33,10 @@ MAX_POSTS_PER_USER_PER_DAY = int(os.environ.get("MAX_POSTS_PER_USER_PER_DAY", "1
 # sessões não sobrevivem a um restart, o que é aceitável em dev).
 SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY") or os.urandom(32).hex()
 
+# O email que se registar com este endereço fica automaticamente admin
+# (acesso a /admin/moderacao). Define no .env antes de te registares.
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower() or None
+
 
 def b2_configured() -> bool:
     return bool(B2_KEY_ID and B2_APP_KEY and B2_BUCKET)

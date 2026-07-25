@@ -4,7 +4,7 @@
 
 Aplicação de geração de posts para redes sociais criada para o **Backblaze Generative Media Hackathon**. Transforma o briefing de um negócio (tema, produto/serviço, público-alvo, tom, chamada para ação, categoria, preço em Metical, localização e contacto) num post pronto a publicar — imagem 1080×1080, legenda, chamada para ação e hashtags — usando o SDK **[Genblaze](https://github.com/backblaze-labs/genblaze)** com o provedor **GMICloud**, e guarda tudo no **Backblaze B2** com um manifesto de proveniência verificável (SHA-256).
 
-Serve tanto empresas com marca própria (estilizadas por categoria de negócio) como utilizadores simples que querem anunciar sem ter uma marca. Cada utilizador regista-se, pode opcionalmente registar um negócio (ex.: uma confeitaria) com perfil próprio, publica posts em nome próprio ou do negócio, e explora os posts de outros negócios por categoria e localização para comparar preços — isto exige conta, como no Facebook. Já cada post individual e a sua proveniência têm uma página pública e partilhável (sem conta), para poderem ser divulgados e verificados por qualquer pessoa. O número `872599084` é o contacto fixo da plataforma para mediação entre compradores e vendedores.
+Serve tanto empresas com marca própria (estilizadas por categoria de negócio) como utilizadores simples que querem anunciar sem ter uma marca. Cada utilizador regista-se, pode opcionalmente registar um negócio (ex.: uma confeitaria) com perfil próprio, publica posts em nome próprio ou do negócio, e explora os posts de outros negócios por categoria e localização para comparar preços — isto exige conta, como no Facebook. Já cada post individual e a sua proveniência têm uma página pública e partilhável (sem conta), para poderem ser divulgados e verificados por qualquer pessoa — a menos que tenha sido reportado e esteja pendente de revisão (ver moderação abaixo). O número `872599084` é o contacto fixo da plataforma para mediação entre compradores e vendedores.
 
 ## Princípio: Nunca fingir
 
@@ -23,6 +23,7 @@ Um post só aparece como `completed` depois de o Genblaze gerar realmente a imag
 - **Mensagens ("Boladas Message")**: contacto interno entre utilizadores sempre associado ao post/produto em causa, mais um canal separado para contactar a equipa da plataforma para ajuda/mediação.
 - **Termos de Uso**: aceitação obrigatória no registo (`/termos`), deixando explícito que a plataforma não processa nem retém pagamentos.
 - **Transações**: checklist de confiança entre comprador e vendedor (`pendente → vendido → recebido`, com opção de mediação da equipa) — sem custódia de dinheiro (ver nota em "Estado atual").
+- **Moderação**: lista de bloqueio de texto (sem custo, aplicada antes de gastar créditos GMICloud a gerar o post) + classificação por IA via `chat()` quando há saldo GMICloud; qualquer utilizador pode reportar um post (incluindo fotos/vídeo, que não têm verificação visual automática — não existe API de visão verificada disponível), ocultando-o até um admin decidir em `/admin/moderacao`.
 
 ## Instalação
 
@@ -46,6 +47,7 @@ B2_REGION=us-east-005
 GMI_API_KEY=...        # https://console.gmicloud.ai/
 SESSION_SECRET_KEY=... # python3 -c "import os; print(os.urandom(32).hex())"
 MAX_POSTS_PER_USER_PER_DAY=10
+ADMIN_EMAIL=teu-email@exemplo.co.mz  # quem se registar com este email fica admin
 ```
 
 Sem estas variáveis, a aplicação continua a arrancar e a servir as páginas, mas qualquer tentativa de gerar um post falha de forma explícita (respeitando "Nunca fingir") em vez de simular um resultado.
@@ -86,18 +88,21 @@ app/
 ├── models.py            # Pydantic: PostInput, UserCreate, BusinessInput, PostStatus...
 ├── categories.py         # categorias de negócio → cor/estilo de imagem
 ├── auth.py                # hash de password (bcrypt), sessão, get_current_user
-├── db.py                   # SQLite: users, businesses, posts, messages, product_media
+├── db.py                   # SQLite: users, businesses, posts, messages, product_media,
+│                            # transactions, reports
 ├── pipeline.py              # geração real via Genblaze + GMICloud
 ├── image_compose.py          # sobrepõe nome/preço/CTA na imagem com Pillow
 ├── media_validate.py          # valida fotos/vídeo (Pillow + ffprobe), limites reais
-├── storage.py                   # upload/verificação (SHA-256 remoto) no B2
-├── provenance.py                  # montagem do provenance.json
-├── routers/                        # auth, business, explore, messages, media,
-│                                     transactions, posts, history, provenance
-├── templates/                       # registar, entrar, termos, empresa, explorar,
-│                                      criar, resultado, histórico, proveniência,
-│                                      inbox, thread, media_form, transactions,
-│                                      transaction_detail
+├── moderation.py                # lista de bloqueio de texto + classificação IA opcional
+├── storage.py                     # upload/verificação (SHA-256 remoto) no B2
+├── provenance.py                    # montagem do provenance.json
+├── routers/                          # auth, business, explore, messages, media,
+│                                       transactions, moderation, posts, history,
+│                                       provenance
+├── templates/                         # registar, entrar, termos, empresa, explorar,
+│                                        criar, resultado, histórico, proveniência,
+│                                        inbox, thread, media_form, transactions,
+│                                        transaction_detail, admin_moderation
 └── static/                           # css/js/fonts (DejaVu, para o overlay)
 tests/                                 # pytest
 ```
@@ -157,10 +162,18 @@ estado intermédio. Termos de Uso obrigatórios no registo, mensagens internas l
 post/produto (com canal separado para contactar a plataforma), upload de até 4 fotos + 1
 vídeo de 30s reais por produto (com validação real de imagem/duração), e rastreio de estado
 de transação entre comprador e vendedor (pendente → vendido → recebido, com opção de pedir
-mediação da equipa — ver nota sobre pagamentos abaixo).
-Por fazer: moderação de conteúdo, gerar um post real de ponta a ponta com credenciais reais,
-deploy para URL pública, conta de demonstração para os jurados, vídeo de demonstração.
+mediação da equipa — ver nota sobre pagamentos abaixo). Moderação de texto (lista de bloqueio
++ classificação por IA quando há saldo GMICloud) aplicada antes da geração, mais um mecanismo
+de reportar conteúdo (cobre texto, fotos e vídeo) com fila de revisão humana em
+`/admin/moderacao` — ver nota sobre moderação visual abaixo.
+Por fazer: gerar um post real de ponta a ponta com credenciais reais, deploy para URL
+pública, conta de demonstração para os jurados, vídeo de demonstração.
 
 **Nota sobre pagamentos:** o Boladas-ponto-com não processa nem retém dinheiro de
 utilizadores. Um mecanismo desse tipo (custódia/escrow) exigiria licenciamento como
 instituição de pagamento, o que está fora do âmbito deste MVP.
+
+**Nota sobre moderação visual:** não existe verificação automática de conteúdo em
+fotos/vídeo — não há uma API de visão verificada disponível para isto. Fotos/vídeo (e texto
+que passe as duas camadas automáticas) ficam cobertos pelo mecanismo de reportar + revisão
+humana, não por deteção automática.

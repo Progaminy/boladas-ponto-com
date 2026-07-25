@@ -52,6 +52,19 @@ CREATE TABLE IF NOT EXISTS transactions (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS reports (
+    report_id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL REFERENCES posts(post_id),
+    reporter_id TEXT NOT NULL REFERENCES users(user_id),
+    reason TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'user',
+    resolved INTEGER NOT NULL DEFAULT 0,
+    resolution TEXT,
+    resolved_by TEXT REFERENCES users(user_id),
+    resolved_at TEXT,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS businesses (
     business_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL UNIQUE REFERENCES users(user_id),
@@ -95,7 +108,8 @@ CREATE TABLE IF NOT EXISTS posts (
     caption_key TEXT,
     provenance_key TEXT,
     thumbnail_key TEXT,
-    image_url TEXT
+    image_url TEXT,
+    moderation_status TEXT NOT NULL DEFAULT 'approved'
 );
 """
 
@@ -125,6 +139,9 @@ def init_db() -> None:
         conn.executescript(SCHEMA)
         _ensure_column(conn, "users", "terms_accepted_at", "terms_accepted_at TEXT")
         _ensure_column(conn, "users", "is_admin", "is_admin INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(
+            conn, "posts", "moderation_status", "moderation_status TEXT NOT NULL DEFAULT 'approved'"
+        )
 
 
 def _now() -> str:
@@ -134,12 +151,15 @@ def _now() -> str:
 # --- users -----------------------------------------------------------------
 
 def create_user(user_id: str, email: str, password_hash: str, display_name: str) -> None:
+    from app.config import ADMIN_EMAIL
+
     now = _now()
+    is_admin = 1 if ADMIN_EMAIL and email.strip().lower() == ADMIN_EMAIL else 0
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO users (user_id, email, password_hash, display_name, created_at, "
-            "terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (user_id, email, password_hash, display_name, now, now),
+            "terms_accepted_at, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, email, password_hash, display_name, now, now, is_admin),
         )
 
 
@@ -380,6 +400,44 @@ def list_transactions_for_user(user_id: str) -> list[sqlite3.Row]:
         return cur.fetchall()
 
 
+def set_post_moderation_status(post_id: str, status: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE posts SET moderation_status = ?, updated_at = ? WHERE post_id = ?",
+            (status, _now(), post_id),
+        )
+
+
+def create_report(report_id: str, post_id: str, reporter_id: str, reason: str, source: str = "user") -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO reports (report_id, post_id, reporter_id, reason, source, "
+            "resolved, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)",
+            (report_id, post_id, reporter_id, reason, source, _now()),
+        )
+
+
+def list_open_reports() -> list[sqlite3.Row]:
+    with get_conn() as conn:
+        cur = conn.execute("SELECT * FROM reports WHERE resolved = 0 ORDER BY created_at ASC")
+        return cur.fetchall()
+
+
+def get_report(report_id: str) -> sqlite3.Row | None:
+    with get_conn() as conn:
+        cur = conn.execute("SELECT * FROM reports WHERE report_id = ?", (report_id,))
+        return cur.fetchone()
+
+
+def resolve_report(report_id: str, resolved_by: str, resolution: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE reports SET resolved = 1, resolution = ?, resolved_by = ?, resolved_at = ? "
+            "WHERE report_id = ?",
+            (resolution, resolved_by, _now(), report_id),
+        )
+
+
 def get_post(post_id: str) -> sqlite3.Row | None:
     with get_conn() as conn:
         cur = conn.execute("SELECT * FROM posts WHERE post_id = ?", (post_id,))
@@ -417,7 +475,7 @@ def list_posts_by_business(business_id: str, limit: int = 50) -> list[sqlite3.Ro
 def list_public_posts(
     category: str | None = None, location_query: str | None = None, limit: int = 100
 ) -> list[sqlite3.Row]:
-    query = "SELECT * FROM posts WHERE status = 'completed'"
+    query = "SELECT * FROM posts WHERE status = 'completed' AND moderation_status = 'approved'"
     params: list = []
     if category:
         query += " AND category = ?"

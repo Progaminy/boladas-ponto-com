@@ -3,12 +3,20 @@
 {% block content %}
 
 {% if post is none %}
-  <h1>Post não encontrado</h1>
-  <p class="muted">Não existe nenhum post com o identificador <code>{{ post_id }}</code>.</p>
+  {% if moderated %}
+    <h1>Conteúdo em revisão</h1>
+    <p class="muted">Este post foi reportado e está temporariamente oculto até revisão da equipa Boladas.</p>
+  {% else %}
+    <h1>Post não encontrado</h1>
+    <p class="muted">Não existe nenhum post com o identificador <code>{{ post_id }}</code>.</p>
+  {% endif %}
 {% else %}
   <div class="card" style="--cat-accent: {{ category.accent }};">
     <span class="badge status-{{ post['status'] }}">{{ post['status'] }}</span>
     <span class="badge" style="margin-left:0.4rem;">{{ category.label }}</span>
+    {% if post['moderation_status'] != 'approved' %}
+      <span class="badge" style="margin-left:0.4rem; background:#f87171;">{{ post['moderation_status'] }}</span>
+    {% endif %}
     <h1>{{ post['theme'] }}</h1>
     <p class="muted">{{ post['business'] }} &middot; post_id: <code>{{ post_id }}</code></p>
 
@@ -58,6 +66,19 @@
         </form>
       {% elif not current_user %}
         <p class="muted"><a href="/entrar">Entra</a> para contactares o vendedor sobre este produto.</p>
+      {% endif %}
+
+      {% if current_user and current_user['user_id'] != post['user_id'] %}
+        <details style="margin-top:1rem;">
+          <summary class="muted" style="cursor:pointer;">Reportar este conteúdo</summary>
+          <form method="post" action="/posts/{{ post_id }}/reportar" style="margin-top:0.5rem;">
+            <div class="field">
+              <label for="reason">Motivo</label>
+              <textarea id="reason" name="reason" rows="2" required maxlength="500" placeholder="Descreve o problema (ex.: produto proibido, fotos impróprias, burla)"></textarea>
+            </div>
+            <button type="submit" style="background:#5a1e1e; color:#fff;">Reportar</button>
+          </form>
+        </details>
       {% endif %}
     {% elif post['status'] == 'failed' %}
       <div class="error-box">

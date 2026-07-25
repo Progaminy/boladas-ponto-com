@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Moderação — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Fila de moderação</h1>
+
+{% if not items %}
+  <p class="muted">Sem conteúdo reportado por rever.</p>
+{% else %}
+{% for item in items %}
+<div class="card">
+  <p style="margin:0; font-weight:600;">{{ item.post['theme'] if item.post else 'Post removido' }}</p>
+  <p class="muted" style="margin:0.3rem 0;">Motivo: {{ item.report['reason'] }}</p>
+  <p class="muted" style="margin:0; font-size:0.8rem;">Reportado em {{ item.report['created_at'][:16] }}</p>
+  {% if item.post %}<p><a href="/posts/{{ item.post['post_id'] }}">Ver post →</a></p>{% endif %}
+  <form method="post" action="/admin/moderacao/{{ item.report['report_id'] }}/resolver" style="flex-direction: row; gap: 0.6rem;">
+    <button type="submit" name="decision" value="aprovar">Aprovar (voltar a mostrar)</button>
+    <button type="submit" name="decision" value="bloquear" style="background:#5a1e1e; color:#fff;">Bloquear definitivamente</button>
+  </form>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
