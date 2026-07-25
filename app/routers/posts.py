@@ -27,7 +27,11 @@ THUMBNAIL_SIZE = 320
 
 @router.get("/", response_class=HTMLResponse)
 def root(request: Request):
-    return RedirectResponse("/explorar", status_code=303)
+    if get_current_user(request) is not None:
+        return RedirectResponse("/explorar", status_code=303)
+    return templates.TemplateResponse(
+        request, "landing.html", {"categories": list_categories()[:8]}
+    )
 
 
 @router.get("/criar", response_class=HTMLResponse)

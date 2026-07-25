@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Boladas-ponto-com — Crie posts. Guarde a origem.{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <h1 class="hero-title">Crie posts.<br />Guarde a origem.</h1>
+  <p class="hero-subtitle">
+    Descreve o que vendes — a Boladas gera a imagem, a legenda, a chamada para
+    ação e as hashtags com IA (Genblaze + GMICloud), guarda tudo no Backblaze B2
+    e mantém um registo verificável de como cada post foi feito.
+  </p>
+  <div class="hero-actions">
+    <a href="/registar" class="btn-primary">Criar conta grátis</a>
+    <a href="/entrar" class="btn-secondary">Já tenho conta</a>
+  </div>
+</section>
+
+<section class="landing-section">
+  <h2>Como funciona</h2>
+  <div class="step-grid">
+    <div class="step">
+      <span class="step-num">1</span>
+      <p><strong>Descreve o produto</strong><br />o que vendes, categoria, preço em MT, localização e contacto.</p>
+    </div>
+    <div class="step">
+      <span class="step-num">2</span>
+      <p><strong>A IA gera o post</strong><br />imagem 1080×1080, legenda, CTA e hashtags — via Genblaze.</p>
+    </div>
+    <div class="step">
+      <span class="step-num">3</span>
+      <p><strong>Guardado no B2</strong><br />cada ficheiro é verificado por SHA-256 real após o upload.</p>
+    </div>
+    <div class="step">
+      <span class="step-num">4</span>
+      <p><strong>Publica e negoceia</strong><br />partilha o post, recebe mensagens, negoceia com o comprador.</p>
+    </div>
+  </div>
+</section>
+
+<section class="landing-section">
+  <div class="card" style="border-left-color:var(--accent);">
+    <h2 style="margin-top:0;">O princípio "Nunca fingir"</h2>
+    <p>Um post só aparece como concluído depois de o Genblaze gerar mesmo a
+    imagem e a legenda, e de cada ficheiro ser confirmado no Backblaze B2 —
+    reenviado, descarregado de volta e comparado byte a byte. Se algo falhar,
+    a Boladas mostra o erro real. Nunca inventa um resultado.</p>
+  </div>
+</section>
+
+<section class="landing-section">
+  <h2>Para quem vende ocasionalmente ou tem negócio próprio</h2>
+  <p class="muted">
+    Publica como tu mesmo, numa venda pessoal e eventual, com um formulário
+    simples — ou regista quantas empresas quiseres, cada uma com o seu
+    perfil, categoria, fotos e cor. Junta até 4 fotos e 1 vídeo de 30s reais
+    do produto, além da imagem gerada por IA.
+  </p>
+  {% if categories %}
+  <div class="swatch-grid">
+    {% for c in categories %}
+    <span class="swatch" style="background:{{ c.accent }}; color:{{ '#14100a' if c.accent != '#171717' else '#fff' }};">{{ c.label }}</span>
+    {% endfor %}
+  </div>
+  <p class="muted" style="font-size:0.85rem;">...e mais de 20 outras categorias, ou escreve a tua própria.</p>
+  {% endif %}
+</section>
+
+<section class="landing-section">
+  <h2>Confiança entre comprador e vendedor</h2>
+  <p class="muted">
+    Mensagens internas sempre ligadas ao produto em causa, um checklist de
+    transação (pendente → vendido → recebido) com apoio opcional da equipa
+    Boladas para mediar, e um sistema de reportar conteúdo com revisão
+    humana. A Boladas nunca processa nem retém o teu dinheiro — o pagamento
+    é sempre direto entre as partes.
+  </p>
+</section>
+
+<section class="landing-section" style="text-align:center;">
+  <a href="/registar" class="btn-primary">Começar agora</a>
+  <p class="muted" style="margin-top:1rem;">Contacto da plataforma para mediação: <strong>{{ platform_contact }}</strong></p>
+</section>
+
+{% endblock %}

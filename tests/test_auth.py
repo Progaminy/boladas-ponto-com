@@ -118,3 +118,21 @@ def test_explorar_requires_session(client):
 
     resp = client.get("/explorar")
     assert resp.status_code == 200
+
+
+def test_landing_page_shown_when_logged_out(client):
+    resp = client.get("/", follow_redirects=False)
+    assert resp.status_code == 200
+    assert "Crie posts" in resp.text
+    assert "Nunca fingir" in resp.text
+
+
+def test_root_redirects_to_explorar_when_logged_in(client):
+    client.post(
+        "/registar",
+        data={"email": "raiz@exemplo.co.mz", "password": "password123", "display_name": "Raiz", "terms_accepted": "on"},
+        follow_redirects=False,
+    )
+    resp = client.get("/", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/explorar"
