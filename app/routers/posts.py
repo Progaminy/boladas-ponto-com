@@ -10,6 +10,7 @@ from PIL import Image
 from app import db
 from app.auth import get_current_user
 from app.categories import get_category, list_categories
+from app.category_classify import suggest_category
 from app.config import MAX_POSTS_PER_USER_PER_DAY
 from app.image_compose import add_business_overlay
 from app.models import PostInput, PostStatus, PublisherType
@@ -39,6 +40,20 @@ def create_form(request: Request):
     return templates.TemplateResponse(
         request, "create.html", {"categories": list_categories(), "businesses": businesses}
     )
+
+
+@router.post("/categoria/sugerir")
+def suggest_category_endpoint(request: Request, description: str = Form(...)):
+    if get_current_user(request) is None:
+        return JSONResponse({"error": "Sessão expirada."}, status_code=401)
+
+    slug = suggest_category(description)
+    if slug is None:
+        return JSONResponse(
+            {"error": "Sugestão automática indisponível de momento (sem saldo GMICloud)."},
+            status_code=503,
+        )
+    return JSONResponse({"slug": slug, "label": get_category(slug).label})
 
 
 @router.post("/posts")

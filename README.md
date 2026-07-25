@@ -4,7 +4,7 @@
 
 Aplicação de geração de posts para redes sociais criada para o **Backblaze Generative Media Hackathon**. Transforma o briefing de um negócio (tema, produto/serviço, público-alvo, tom, chamada para ação, categoria, preço em Metical, localização e contacto) num post pronto a publicar — imagem 1080×1080, legenda, chamada para ação e hashtags — usando o SDK **[Genblaze](https://github.com/backblaze-labs/genblaze)** com o provedor **GMICloud**, e guarda tudo no **Backblaze B2** com um manifesto de proveniência verificável (SHA-256).
 
-Serve tanto empresas com marca própria (estilizadas por categoria de negócio) como utilizadores simples que querem anunciar sem ter uma marca. Cada utilizador regista-se, pode opcionalmente registar um negócio (ex.: uma confeitaria) com perfil próprio, publica posts em nome próprio ou do negócio, e explora os posts de outros negócios por categoria e localização para comparar preços — isto exige conta, como no Facebook. Já cada post individual e a sua proveniência têm uma página pública e partilhável (sem conta), para poderem ser divulgados e verificados por qualquer pessoa — a menos que tenha sido reportado e esteja pendente de revisão (ver moderação abaixo). O número `872599084` é o contacto fixo da plataforma para mediação entre compradores e vendedores.
+Serve tanto empresas com marca própria (estilizadas por categoria de negócio, entre ~29 categorias, ou uma categoria personalizada escrita à mão) como utilizadores simples que querem anunciar sem ter uma marca. Cada utilizador regista-se, pode registar quantas empresas quiser (cada uma com o seu próprio perfil, categoria e fotos), publica posts em nome próprio ou de qualquer uma delas — o formulário fica simples por omissão para uma venda pessoal/eventual, e só pede os detalhes de marketing quando publicas como empresa — e explora os posts de outros negócios por categoria e localização para comparar preços — isto exige conta, como no Facebook. Já cada post individual e a sua proveniência têm uma página pública e partilhável (sem conta), para poderem ser divulgados e verificados por qualquer pessoa — a menos que tenha sido reportado e esteja pendente de revisão (ver moderação abaixo). O número `872599084` é o contacto fixo da plataforma para mediação entre compradores e vendedores.
 
 ## Princípio: Nunca fingir
 
@@ -24,6 +24,8 @@ Um post só aparece como `completed` depois de o Genblaze gerar realmente a imag
 - **Termos de Uso**: aceitação obrigatória no registo (`/termos`), deixando explícito que a plataforma não processa nem retém pagamentos.
 - **Transações**: checklist de confiança entre comprador e vendedor (`pendente → vendido → recebido`, com opção de mediação da equipa) — sem custódia de dinheiro (ver nota em "Estado atual").
 - **Moderação**: lista de bloqueio de texto (sem custo, aplicada antes de gastar créditos GMICloud a gerar o post) + classificação por IA via `chat()` quando há saldo GMICloud; qualquer utilizador pode reportar um post (incluindo fotos/vídeo, que não têm verificação visual automática — não existe API de visão verificada disponível), ocultando-o até um admin decidir em `/admin/moderacao`.
+- **Categorias e cor da plataforma**: cor oficial roxo escuro na interface; ~29 categorias com cores coerentes por omissão (ex.: farmácia branco, eletricidade laranja, mecânica azul-escuro); qualquer categoria fora da lista é aceite tal como escrita (nunca bloqueada), e há um botão para sugerir a categoria automaticamente a partir da descrição via IA (também depende de saldo GMICloud).
+- **Fotos de perfil/capa**: uma foto de perfil e uma de capa para a conta pessoal, e o mesmo por cada empresa registada — com perfil público em `/utilizador/<id>` e `/negocio/<id>`.
 
 ## Instalação
 
@@ -86,25 +88,27 @@ app/
 ├── main.py            # app FastAPI, SessionMiddleware, monta routers, health-check
 ├── config.py           # variáveis de ambiente, contacto da plataforma
 ├── models.py            # Pydantic: PostInput, UserCreate, BusinessInput, PostStatus...
-├── categories.py         # categorias de negócio → cor/estilo de imagem
+├── categories.py         # ~29 categorias de negócio → cor/estilo de imagem
+├── category_classify.py  # sugestão de categoria via IA (opcional, GMICloud)
 ├── auth.py                # hash de password (bcrypt), sessão, get_current_user
-├── db.py                   # SQLite: users, businesses, posts, messages, product_media,
-│                            # transactions, reports
-├── pipeline.py              # geração real via Genblaze + GMICloud
-├── image_compose.py          # sobrepõe nome/preço/CTA na imagem com Pillow
-├── media_validate.py          # valida fotos/vídeo (Pillow + ffprobe), limites reais
-├── moderation.py                # lista de bloqueio de texto + classificação IA opcional
-├── storage.py                     # upload/verificação (SHA-256 remoto) no B2
-├── provenance.py                    # montagem do provenance.json
-├── routers/                          # auth, business, explore, messages, media,
-│                                       transactions, moderation, posts, history,
-│                                       provenance
-├── templates/                         # registar, entrar, termos, empresa, explorar,
-│                                        criar, resultado, histórico, proveniência,
-│                                        inbox, thread, media_form, transactions,
-│                                        transaction_detail, admin_moderation
-└── static/                           # css/js/fonts (DejaVu, para o overlay)
-tests/                                 # pytest
+├── db.py                   # SQLite: users, businesses (várias por user), posts,
+│                            # messages, product_media, transactions, reports
+├── pipeline.py               # geração real via Genblaze + GMICloud
+├── image_compose.py           # sobrepõe nome/preço/CTA na imagem com Pillow
+├── media_validate.py           # valida fotos/vídeo (Pillow + ffprobe), limites reais
+├── moderation.py                 # lista de bloqueio de texto + classificação IA opcional
+├── storage.py                      # upload/verificação (SHA-256 remoto) no B2
+├── provenance.py                     # montagem do provenance.json
+├── routers/                           # auth, business, explore, messages, media,
+│                                        transactions, moderation, profile, posts,
+│                                        history, provenance
+├── templates/                          # registar, entrar, termos, empresa (lista/
+│                                         criar/editar), explorar, criar, resultado,
+│                                         histórico, proveniência, inbox, thread,
+│                                         media_form, transactions, admin_moderation,
+│                                         photos_form, user_profile
+└── static/                            # css/js/fonts (DejaVu, para o overlay)
+tests/                                  # pytest
 ```
 
 Dockerfile na raiz (usado pelo deploy no Render) instala `ffmpeg` para a validação real de vídeo.

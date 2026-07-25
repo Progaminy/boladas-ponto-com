@@ -43,6 +43,14 @@ def post_key(post_id: str, filename: str) -> str:
     return f"posts/{post_id}/{filename}"
 
 
+def user_key(user_id: str, filename: str) -> str:
+    return f"users/{user_id}/{filename}"
+
+
+def business_key(business_id: str, filename: str) -> str:
+    return f"businesses/{business_id}/{filename}"
+
+
 def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 

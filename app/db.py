@@ -521,8 +521,18 @@ def list_posts_by_business(business_id: str, limit: int = 50) -> list[sqlite3.Ro
     with get_conn() as conn:
         cur = conn.execute(
             "SELECT * FROM posts WHERE business_id = ? AND status = 'completed' "
-            "ORDER BY created_at DESC LIMIT ?",
+            "AND moderation_status = 'approved' ORDER BY created_at DESC LIMIT ?",
             (business_id, limit),
+        )
+        return cur.fetchall()
+
+
+def list_public_individual_posts_by_user(user_id: str, limit: int = 50) -> list[sqlite3.Row]:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT * FROM posts WHERE user_id = ? AND business_id IS NULL AND status = 'completed' "
+            "AND moderation_status = 'approved' ORDER BY created_at DESC LIMIT ?",
+            (user_id, limit),
         )
         return cur.fetchall()
 

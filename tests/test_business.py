@@ -137,3 +137,19 @@ def test_business_edit_requires_ownership(client):
     resp = client.get(f"/empresa/{biz_id}/editar", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/empresa"
+
+
+def test_suggest_category_endpoint_without_gmi_key_returns_unavailable(client, monkeypatch):
+    from app import category_classify
+
+    monkeypatch.setattr(category_classify, "GMI_API_KEY", None)
+    _register(client, "sugestao@exemplo.co.mz", "Sugestao")
+
+    resp = client.post("/categoria/sugerir", data={"description": "Vendo bolos e doces"})
+    assert resp.status_code == 503
+    assert "error" in resp.json()
+
+
+def test_suggest_category_endpoint_requires_session(client):
+    resp = client.post("/categoria/sugerir", data={"description": "Vendo bolos"})
+    assert resp.status_code == 401

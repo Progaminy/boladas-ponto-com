@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ profile_user['display_name'] if profile_user else 'Perfil' }} — Boladas-ponto-com{% endblock %}
+{% block content %}
+
+{% if profile_user is none %}
+  <h1>Utilizador não encontrado</h1>
+{% else %}
+  {% if profile_user['cover_photo_url'] %}
+    <img src="{{ profile_user['cover_photo_url'] }}" alt="capa" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; margin-bottom:-3rem;" />
+  {% endif %}
+  <div class="card">
+    {% if profile_user['profile_photo_url'] %}
+      <img src="{{ profile_user['profile_photo_url'] }}" alt="{{ profile_user['display_name'] }}" style="width:96px; height:96px; border-radius:50%; object-fit:cover;" />
+    {% endif %}
+    <h1>{{ profile_user['display_name'] }}</h1>
+
+    {% if current_user and current_user['user_id'] == profile_user['user_id'] %}
+      <p><a href="/perfil/fotos">Alterar as minhas fotos →</a></p>
+    {% endif %}
+
+    {% if businesses %}
+      <h2>Empresas</h2>
+      <div class="history-grid">
+        {% for b in businesses %}
+        <a href="/negocio/{{ b['business_id'] }}" style="text-decoration:none; color:inherit;">
+          <div class="card" style="padding:0.6rem;">
+            {% if b['profile_photo_url'] %}<img src="{{ b['profile_photo_url'] }}" alt="{{ b['name'] }}" />{% endif %}
+            <p style="margin:0.5rem 0 0; font-weight:600;">{{ b['name'] }}</p>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <h2>Vendas pessoais</h2>
+    {% if not posts %}
+      <p class="muted">Ainda não tem posts pessoais publicados.</p>
+    {% else %}
+      <div class="history-grid">
+        {% for row in posts %}
+        <a href="/posts/{{ row['post_id'] }}" style="text-decoration:none; color:inherit;">
+          <div class="card" style="padding:0.6rem;">
+            {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
+            <p style="margin:0.5rem 0 0; font-weight:600;">{{ row['theme'] }}</p>
+            {% if row['price_mt'] %}<p class="muted" style="margin:0;">{{ row['price_mt'] }} MT</p>{% endif %}
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% endblock %}

@@ -13,8 +13,9 @@
       {% if current_user %}
         <a href="/explorar">Explorar</a>
         <a href="/criar">Criar post</a>
-        <a href="/empresa">Minha empresa</a>
+        <a href="/empresa">Minhas empresas</a>
         <a href="/historico">Histórico</a>
+        <a href="/utilizador/{{ current_user['user_id'] }}">O meu perfil</a>
         <a href="/mensagens">Mensagens</a>
         <a href="/transacoes">Transações</a>
         {% if current_user['is_admin'] %}<a href="/admin/moderacao">Moderação</a>{% endif %}

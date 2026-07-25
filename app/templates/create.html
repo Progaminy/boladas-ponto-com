@@ -39,6 +39,10 @@
   <div class="field">
     <label for="category_custom">Ou escreve uma categoria diferente (opcional)</label>
     <input type="text" id="category_custom" name="category_custom" maxlength="60" placeholder="Se a tua categoria não estiver na lista" />
+    <p class="muted" style="margin:0.3rem 0 0; font-size:0.85rem;">
+      Não sabes qual escolher? <a href="#" id="suggest-category-link">Sugerir automaticamente a partir da descrição</a>
+      <span id="suggest-category-status"></span>
+    </p>
   </div>
 
   <div class="field-row">
@@ -123,6 +127,35 @@
     const businessInput = document.getElementById("business");
     if (!themeInput.value.trim()) themeInput.value = businessInput.value;
   }, true);
+
+  const suggestLink = document.getElementById("suggest-category-link");
+  const suggestStatus = document.getElementById("suggest-category-status");
+  const businessInputEl = document.getElementById("business");
+  const categoryCustomInput = document.getElementById("category_custom");
+
+  suggestLink.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    if (!businessInputEl.value.trim()) {
+      suggestStatus.textContent = " — escreve primeiro o que estás a vender.";
+      return;
+    }
+    suggestStatus.textContent = " a pensar...";
+    try {
+      const formData = new FormData();
+      formData.set("description", businessInputEl.value);
+      const resp = await fetch("/categoria/sugerir", { method: "POST", body: formData });
+      const data = await resp.json();
+      if (resp.ok) {
+        categorySelect.value = data.slug;
+        categoryCustomInput.value = "";
+        suggestStatus.textContent = ` — sugerido: ${data.label}`;
+      } else {
+        suggestStatus.textContent = ` — ${data.error}`;
+      }
+    } catch (err) {
+      suggestStatus.textContent = " — erro de rede.";
+    }
+  });
 </script>
 <script src="/static/js/app.js"></script>
 {% endblock %}

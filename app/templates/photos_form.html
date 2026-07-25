@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Fotos de perfil/capa — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Fotos de {% if target == 'business' %}{{ business['name'] }}{% else %}perfil{% endif %}</h1>
+<p class="subtitle">Uma foto de perfil e uma foto de capa. Envia só as que quiseres substituir.</p>
+
+{% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+
+<form method="post" action="{{ '/empresa/' ~ business['business_id'] ~ '/fotos' if target == 'business' else '/perfil/fotos' }}" enctype="multipart/form-data">
+  <div class="field">
+    <label for="profile_photo">Foto de perfil</label>
+    <input type="file" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/webp" />
+  </div>
+  <div class="field">
+    <label for="cover_photo">Foto de capa</label>
+    <input type="file" id="cover_photo" name="cover_photo" accept="image/jpeg,image/png,image/webp" />
+  </div>
+  <button type="submit">Guardar</button>
+</form>
+{% endblock %}
