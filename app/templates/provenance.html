@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Proveniência — Boladas-ponto-com{% endblock %}
 {% block content %}
-<h1>Detalhes da proveniência</h1>
+<h1>Proveniência</h1>
 <p class="muted">post_id: <code>{{ post_id }}</code></p>
 
 {% if fetch_error %}
@@ -9,22 +9,50 @@
 {% endif %}
 
 {% if provenance %}
+  <div class="card verify-card">
+    <h2 style="margin-top:0;">Verificação ao vivo</h2>
+    <p class="muted">
+      O manifesto abaixo afirma um SHA-256 para cada ficheiro. Carrega no botão
+      para ir buscar os bytes reais ao Backblaze B2 <em>agora</em> e recalcular o
+      hash — se algum ficheiro tiver sido alterado ou desaparecido, aparece aqui.
+    </p>
+    <button type="button" id="verify-btn">Verificar contra o Backblaze B2 agora</button>
+    <div id="verify-result" class="verify-result"></div>
+  </div>
+
   <div class="card">
     <p><strong>Estado:</strong> {{ provenance.status }}</p>
     <p><strong>Criado em:</strong> {{ provenance.created_at }}</p>
     <p><strong>Genblaze usado:</strong> {{ provenance.generation.genblaze_used }}</p>
-    <p><strong>Prompt:</strong> {{ provenance.generation.prompt }}</p>
+    <p><strong>Prompt enviado ao modelo:</strong></p>
+    <p class="muted">{{ provenance.generation.prompt }}</p>
     <p><strong>Modelos:</strong></p>
     <ul>
       {% for m in provenance.generation.models %}
-      <li>{{ m.role }}: {{ m.provider }} / {{ m.model }}</li>
+      <li>{{ m.role }}: {{ m.provider }} / <code>{{ m.model }}</code></li>
       {% endfor %}
     </ul>
+
+    {% set gm = provenance.generation.genblaze_manifest %}
+    {% if gm %}
+    <p><strong>Manifesto nativo do Genblaze:</strong></p>
+    <ul>
+      <li>run_id: <code>{{ gm.run_id }}</code></li>
+      <li>hash canónico: <code>{{ gm.canonical_hash }}</code></li>
+      <li>manifesto verificado pelo SDK: <strong>{{ gm.manifest_verified }}</strong></li>
+      {% if gm.cost_usd is not none %}<li>custo: ${{ gm.cost_usd }}</li>{% endif %}
+    </ul>
+    {% endif %}
+
     <p><strong>Ficheiros no B2:</strong></p>
     <ul>
-      <li>image.png &mdash; <code>{{ provenance.files.image.b2_key }}</code> &mdash; SHA-256: <code>{{ provenance.files.image.sha256 }}</code></li>
-      <li>caption.txt &mdash; <code>{{ provenance.files.caption.b2_key }}</code> &mdash; SHA-256: <code>{{ provenance.files.caption.sha256 }}</code></li>
+      {% for name, info in provenance.files.items() %}
+      <li>{{ name }} &mdash; <code>{{ info.b2_key }}</code><br />
+        <span class="muted" style="font-size:0.8rem;">SHA-256: <code>{{ info.sha256 }}</code></span>
+      </li>
+      {% endfor %}
     </ul>
+
     {% if provenance.errors %}
       <p><strong>Erros:</strong></p>
       <ul>{% for e in provenance.errors %}<li>{{ e }}</li>{% endfor %}</ul>
@@ -37,4 +65,55 @@
   <p class="muted">Sem dados de proveniência para este post.</p>
 {% endif %}
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const verifyBtn = document.getElementById("verify-btn");
+  const verifyResult = document.getElementById("verify-result");
+
+  if (verifyBtn) {
+    verifyBtn.addEventListener("click", async () => {
+      verifyBtn.disabled = true;
+      verifyResult.className = "verify-result visible checking";
+      verifyResult.textContent = "A descarregar os ficheiros do Backblaze B2 e a recalcular o SHA-256...";
+
+      try {
+        const resp = await fetch(`/posts/{{ post_id }}/verificar`, { method: "POST" });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          verifyResult.className = "verify-result visible failed";
+          verifyResult.textContent = `Não foi possível verificar: ${data.error}`;
+          verifyBtn.disabled = false;
+          return;
+        }
+
+        const rows = data.files.map((f) => {
+          if (f.error) {
+            return `<li class="vf-bad"><strong>${f.name}</strong> — ${f.error}</li>`;
+          }
+          const icon = f.matches ? "✓" : "✗";
+          const cls = f.matches ? "vf-ok" : "vf-bad";
+          const verdict = f.matches
+            ? "hash confere com o manifesto"
+            : `NÃO CONFERE — real: ${f.actual_sha256}`;
+          return `<li class="${cls}">${icon} <strong>${f.name}</strong> (${f.size_bytes} bytes) — ${verdict}</li>`;
+        });
+
+        verifyResult.className = `verify-result visible ${data.all_match ? "ok" : "failed"}`;
+        verifyResult.innerHTML = `
+          <p><strong>${data.all_match
+            ? `Verificado: os ${data.checked_count} ficheiros no B2 correspondem exatamente ao manifesto.`
+            : "Atenção: pelo menos um ficheiro não corresponde ao manifesto."}</strong></p>
+          <ul class="verify-files">${rows.join("")}</ul>
+          <p class="muted" style="font-size:0.8rem;">Verificado em ${data.verified_at}</p>`;
+      } catch (err) {
+        verifyResult.className = "verify-result visible failed";
+        verifyResult.textContent = `Erro de rede: ${err}`;
+      }
+      verifyBtn.disabled = false;
+    });
+  }
+</script>
 {% endblock %}
