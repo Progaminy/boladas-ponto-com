@@ -11,6 +11,11 @@ from app.templating import templates
 router = APIRouter()
 
 
+@router.get("/termos", response_class=HTMLResponse)
+def terms_page(request: Request):
+    return templates.TemplateResponse(request, "terms.html", {})
+
+
 @router.get("/registar", response_class=HTMLResponse)
 def register_form(request: Request):
     return templates.TemplateResponse(request, "register.html", {"error": None})
@@ -22,7 +27,15 @@ def register_submit(
     email: str = Form(...),
     password: str = Form(...),
     display_name: str = Form(...),
+    terms_accepted: str | None = Form(None),
 ):
+    if terms_accepted != "on":
+        return templates.TemplateResponse(
+            request, "register.html",
+            {"error": "Tens de ler e concordar com os Termos de Uso para criar conta."},
+            status_code=422,
+        )
+
     try:
         data = UserCreate(email=email, password=password, display_name=display_name)
     except ValidationError as exc:

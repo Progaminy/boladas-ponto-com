@@ -24,7 +24,7 @@ def test_hash_password_roundtrip():
 def test_register_logs_in_and_redirects_to_criar(client):
     resp = client.post(
         "/registar",
-        data={"email": "ana@exemplo.co.mz", "password": "password123", "display_name": "Ana"},
+        data={"email": "ana@exemplo.co.mz", "password": "password123", "display_name": "Ana", "terms_accepted": "on"},
         follow_redirects=False,
     )
     assert resp.status_code == 303
@@ -35,8 +35,24 @@ def test_register_logs_in_and_redirects_to_criar(client):
     assert "Criar post" in follow.text
 
 
+def test_register_without_accepting_terms_rejected(client):
+    resp = client.post(
+        "/registar",
+        data={"email": "semtermos@exemplo.co.mz", "password": "password123", "display_name": "Sem Termos"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 422
+    assert db_module.get_user_by_email("semtermos@exemplo.co.mz") is None
+
+
+def test_terms_page_accessible_without_session(client):
+    resp = client.get("/termos")
+    assert resp.status_code == 200
+    assert "Termos de Uso" in resp.text
+
+
 def test_register_duplicate_email_rejected(client):
-    payload = {"email": "dup@exemplo.co.mz", "password": "password123", "display_name": "Dup"}
+    payload = {"email": "dup@exemplo.co.mz", "password": "password123", "display_name": "Dup", "terms_accepted": "on"}
     client.post("/registar", data=payload, follow_redirects=False)
     resp = client.post("/registar", data=payload, follow_redirects=False)
     assert resp.status_code == 409
@@ -46,7 +62,7 @@ def test_register_duplicate_email_rejected(client):
 def test_login_wrong_password_rejected(client):
     client.post(
         "/registar",
-        data={"email": "bob@exemplo.co.mz", "password": "password123", "display_name": "Bob"},
+        data={"email": "bob@exemplo.co.mz", "password": "password123", "display_name": "Bob", "terms_accepted": "on"},
         follow_redirects=False,
     )
     client.post("/sair", follow_redirects=False)
@@ -95,7 +111,7 @@ def test_post_result_and_provenance_public_without_session(client):
 def test_explorar_requires_session(client):
     resp = client.post(
         "/registar",
-        data={"email": "exp@exemplo.co.mz", "password": "password123", "display_name": "Exp"},
+        data={"email": "exp@exemplo.co.mz", "password": "password123", "display_name": "Exp", "terms_accepted": "on"},
         follow_redirects=False,
     )
     assert resp.status_code == 303

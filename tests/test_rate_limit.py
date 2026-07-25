@@ -34,7 +34,7 @@ def _dummy_post_input() -> PostInput:
 def test_create_post_blocked_after_daily_limit(client):
     client.post(
         "/registar",
-        data={"email": "limite@exemplo.co.mz", "password": "password123", "display_name": "Limite"},
+        data={"email": "limite@exemplo.co.mz", "password": "password123", "display_name": "Limite", "terms_accepted": "on"},
         follow_redirects=False,
     )
     user = db_module.get_user_by_email("limite@exemplo.co.mz")

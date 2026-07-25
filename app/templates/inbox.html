@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Mensagens — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Mensagens</h1>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+  <a href="/mensagens/plataforma">💬 Contactar a plataforma Boladas para ajuda/mediação →</a>
+</div>
+
+{% if not conversations %}
+  <p class="muted">Ainda não tens conversas. Contacta o vendedor a partir da página de um post.</p>
+{% else %}
+{% for c in conversations %}
+<a href="{{ '/mensagens/plataforma' if c.post_id is none and c.other_user_id is none else '/mensagens/posto/' ~ c.post_id ~ '/' ~ c.other_user_id }}" style="text-decoration:none; color:inherit;">
+  <div class="card">
+    <p style="margin:0; font-weight:600;">
+      {{ c.other_name }}
+      {% if c.unread %}<span class="badge" style="margin-left:0.5rem;">{{ c.unread }} nova(s)</span>{% endif %}
+    </p>
+    {% if c.post_theme %}<p class="muted" style="margin:0.2rem 0; font-size:0.85rem;">Sobre: {{ c.post_theme }}</p>{% endif %}
+    <p class="muted" style="margin:0.3rem 0 0; font-size:0.9rem;">{{ c.last_body[:120] }}</p>
+  </div>
+</a>
+{% endfor %}
+{% endif %}
+{% endblock %}

@@ -12,7 +12,43 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     display_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    terms_accepted_at TEXT,
+    is_admin INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    message_id TEXT PRIMARY KEY,
+    post_id TEXT REFERENCES posts(post_id),
+    sender_id TEXT NOT NULL REFERENCES users(user_id),
+    recipient_id TEXT REFERENCES users(user_id),
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    read_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS product_media (
+    media_id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL REFERENCES posts(post_id),
+    media_type TEXT NOT NULL,
+    b2_key TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    order_index INTEGER NOT NULL,
     created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS transactions (
+    transaction_id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL REFERENCES posts(post_id),
+    buyer_id TEXT NOT NULL REFERENCES users(user_id),
+    seller_id TEXT NOT NULL REFERENCES users(user_id),
+    status TEXT NOT NULL,
+    with_mediation INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS businesses (
@@ -75,9 +111,19 @@ def get_conn():
         conn.close()
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    """Adiciona uma coluna a uma tabela já existente se ainda não existir —
+    evita perder dados locais/em produção quando o schema evolui."""
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        _ensure_column(conn, "users", "terms_accepted_at", "terms_accepted_at TEXT")
+        _ensure_column(conn, "users", "is_admin", "is_admin INTEGER NOT NULL DEFAULT 0")
 
 
 def _now() -> str:
@@ -87,11 +133,12 @@ def _now() -> str:
 # --- users -----------------------------------------------------------------
 
 def create_user(user_id: str, email: str, password_hash: str, display_name: str) -> None:
+    now = _now()
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO users (user_id, email, password_hash, display_name, created_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (user_id, email, password_hash, display_name, _now()),
+            "INSERT INTO users (user_id, email, password_hash, display_name, created_at, "
+            "terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, email, password_hash, display_name, now, now),
         )
 
 
@@ -201,6 +248,58 @@ def save_generation_result(
                 image_key, caption_key, provenance_key, thumbnail_key, image_url,
                 _now(), post_id,
             ),
+        )
+
+
+def create_message(
+    message_id: str, post_id: str | None, sender_id: str, recipient_id: str | None, body: str
+) -> str:
+    now = _now()
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO messages (message_id, post_id, sender_id, recipient_id, body, "
+            "created_at, read_at) VALUES (?, ?, ?, ?, ?, ?, NULL)",
+            (message_id, post_id, sender_id, recipient_id, body, now),
+        )
+    return now
+
+
+def list_messages_for_user(user_id: str) -> list[sqlite3.Row]:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT * FROM messages WHERE sender_id = ? OR recipient_id = ? ORDER BY created_at ASC",
+            (user_id, user_id),
+        )
+        return cur.fetchall()
+
+
+def list_thread(user_id: str, post_id: str | None, other_user_id: str | None) -> list[sqlite3.Row]:
+    with get_conn() as conn:
+        if post_id is None and other_user_id is None:
+            cur = conn.execute(
+                "SELECT * FROM messages WHERE post_id IS NULL AND recipient_id IS NULL "
+                "AND sender_id = ? ORDER BY created_at ASC",
+                (user_id,),
+            )
+        else:
+            cur = conn.execute(
+                "SELECT * FROM messages WHERE post_id = ? "
+                "AND ((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)) "
+                "ORDER BY created_at ASC",
+                (post_id, user_id, other_user_id, other_user_id, user_id),
+            )
+        return cur.fetchall()
+
+
+def mark_thread_read(user_id: str, post_id: str | None, other_user_id: str | None) -> None:
+    if post_id is None and other_user_id is None:
+        return
+    now = _now()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE messages SET read_at = ? WHERE post_id = ? AND sender_id = ? "
+            "AND recipient_id = ? AND read_at IS NULL",
+            (now, post_id, other_user_id, user_id),
         )
 
 

@@ -11,7 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import APP_NAME, APP_VERSION, SESSION_SECRET_KEY, b2_configured, gmi_configured
 from app.db import init_db
-from app.routers import auth, business, explore, history, posts, provenance
+from app.routers import auth, business, explore, history, messages, posts, provenance
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -29,6 +29,7 @@ app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.include_router(auth.router)
 app.include_router(business.router)
 app.include_router(explore.router)
+app.include_router(messages.router)
 app.include_router(posts.router)
 app.include_router(history.router)
 app.include_router(provenance.router)

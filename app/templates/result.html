@@ -23,6 +23,18 @@
       {% if post['location'] %}<p>Localização: {{ post['location'] }}</p>{% endif %}
       <p>Contacto do negócio: {{ post['contact'] }}</p>
       <p><a href="/posts/{{ post_id }}/provenance">Ver detalhes da proveniência →</a></p>
+
+      {% if current_user and current_user['user_id'] != post['user_id'] %}
+        <form method="post" action="/posts/{{ post_id }}/contactar" style="margin-top:1rem;">
+          <div class="field">
+            <label for="body">Contactar sobre este produto</label>
+            <textarea id="body" name="body" rows="2" required maxlength="1000" placeholder="Olá, ainda tens este produto disponível?"></textarea>
+          </div>
+          <button type="submit">Enviar mensagem</button>
+        </form>
+      {% elif not current_user %}
+        <p class="muted"><a href="/entrar">Entra</a> para contactares o vendedor sobre este produto.</p>
+      {% endif %}
     {% elif post['status'] == 'failed' %}
       <div class="error-box">
         <strong>Falhou:</strong> {{ post['error'] }}
