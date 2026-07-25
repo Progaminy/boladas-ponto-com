@@ -22,6 +22,7 @@ Um post só aparece como `completed` depois de o Genblaze gerar realmente a imag
 - **Média do produto**: até 4 fotos e 1 vídeo de 30s reais por post (para além da imagem gerada por IA), com validação real (Pillow reabre a imagem; `ffmpeg`/`ffprobe` mede a duração do vídeo — nunca confia só na extensão/`content_type` declarado pelo browser).
 - **Mensagens ("Boladas Message")**: contacto interno entre utilizadores sempre associado ao post/produto em causa, mais um canal separado para contactar a equipa da plataforma para ajuda/mediação.
 - **Termos de Uso**: aceitação obrigatória no registo (`/termos`), deixando explícito que a plataforma não processa nem retém pagamentos.
+- **Transações**: checklist de confiança entre comprador e vendedor (`pendente → vendido → recebido`, com opção de mediação da equipa) — sem custódia de dinheiro (ver nota em "Estado atual").
 
 ## Instalação
 
@@ -91,11 +92,12 @@ app/
 ├── media_validate.py          # valida fotos/vídeo (Pillow + ffprobe), limites reais
 ├── storage.py                   # upload/verificação (SHA-256 remoto) no B2
 ├── provenance.py                  # montagem do provenance.json
-├── routers/                        # auth, business, explore, messages, media, posts,
-│                                     history, provenance
+├── routers/                        # auth, business, explore, messages, media,
+│                                     transactions, posts, history, provenance
 ├── templates/                       # registar, entrar, termos, empresa, explorar,
 │                                      criar, resultado, histórico, proveniência,
-│                                      inbox, thread, media_form
+│                                      inbox, thread, media_form, transactions,
+│                                      transaction_detail
 └── static/                           # css/js/fonts (DejaVu, para o overlay)
 tests/                                 # pytest
 ```
@@ -152,12 +154,12 @@ por utilizador, galeria (com sessão) para explorar/comparar negócios por categ
 localização, e um limite diário de geração por utilizador. Qualquer erro inesperado durante
 a geração ou o upload marca o post como `failed` com a causa real — nunca fica preso num
 estado intermédio. Termos de Uso obrigatórios no registo, mensagens internas ligadas ao
-post/produto (com canal separado para contactar a plataforma), e upload de até 4 fotos + 1
-vídeo de 30s reais por produto, com validação real de imagem/duração.
-Por fazer: rastreio de estado de transação (pendente/vendido/recebido, sem custódia de
-dinheiro — ver nota abaixo), moderação de conteúdo, gerar um post real de ponta a ponta com
-credenciais reais, deploy para URL pública, conta de demonstração para os jurados, vídeo de
-demonstração.
+post/produto (com canal separado para contactar a plataforma), upload de até 4 fotos + 1
+vídeo de 30s reais por produto (com validação real de imagem/duração), e rastreio de estado
+de transação entre comprador e vendedor (pendente → vendido → recebido, com opção de pedir
+mediação da equipa — ver nota sobre pagamentos abaixo).
+Por fazer: moderação de conteúdo, gerar um post real de ponta a ponta com credenciais reais,
+deploy para URL pública, conta de demonstração para os jurados, vídeo de demonstração.
 
 **Nota sobre pagamentos:** o Boladas-ponto-com não processa nem retém dinheiro de
 utilizadores. Um mecanismo desse tipo (custódia/escrow) exigiria licenciamento como

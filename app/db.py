@@ -345,6 +345,41 @@ def delete_product_media(media_id: str) -> None:
         conn.execute("DELETE FROM product_media WHERE media_id = ?", (media_id,))
 
 
+def create_transaction(
+    transaction_id: str, post_id: str, buyer_id: str, seller_id: str, with_mediation: bool
+) -> None:
+    now = _now()
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO transactions (transaction_id, post_id, buyer_id, seller_id, status, "
+            "with_mediation, notes, created_at, updated_at) VALUES (?, ?, ?, ?, 'pendente', ?, NULL, ?, ?)",
+            (transaction_id, post_id, buyer_id, seller_id, int(with_mediation), now, now),
+        )
+
+
+def get_transaction(transaction_id: str) -> sqlite3.Row | None:
+    with get_conn() as conn:
+        cur = conn.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,))
+        return cur.fetchone()
+
+
+def update_transaction_status(transaction_id: str, status: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE transactions SET status = ?, updated_at = ? WHERE transaction_id = ?",
+            (status, _now(), transaction_id),
+        )
+
+
+def list_transactions_for_user(user_id: str) -> list[sqlite3.Row]:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT * FROM transactions WHERE buyer_id = ? OR seller_id = ? ORDER BY updated_at DESC",
+            (user_id, user_id),
+        )
+        return cur.fetchall()
+
+
 def get_post(post_id: str) -> sqlite3.Row | None:
     with get_conn() as conn:
         cur = conn.execute("SELECT * FROM posts WHERE post_id = ?", (post_id,))

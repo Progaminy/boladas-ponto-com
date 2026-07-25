@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}As minhas transações — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>As minhas transações</h1>
+<p class="subtitle">Estado combinado entre comprador e vendedor. Lembra-te: o pagamento acontece sempre diretamente entre vocês, fora da app.</p>
+
+{% if not items %}
+  <p class="muted">Ainda não tens nenhuma transação.</p>
+{% else %}
+{% for item in items %}
+<a href="/transacoes/{{ item.row['transaction_id'] }}" style="text-decoration:none; color:inherit;">
+  <div class="card">
+    <span class="badge">{{ 'comprador' if item.role == 'buyer' else 'vendedor' }}</span>
+    <span class="badge" style="margin-left:0.4rem;">{{ item.row['status'] }}</span>
+    <p style="margin:0.5rem 0 0; font-weight:600;">{{ item.post['theme'] if item.post else 'Post removido' }}</p>
+  </div>
+</a>
+{% endfor %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Transação — Boladas-ponto-com{% endblock %}
+{% block content %}
+<p><a href="/transacoes">← As minhas transações</a></p>
+<h1>{{ post['theme'] if post else 'Post removido' }}</h1>
+<p class="subtitle">És o <strong>{{ 'comprador' if role == 'buyer' else 'vendedor' }}</strong> nesta transação, com {{ other_user['display_name'] if other_user else 'utilizador removido' }}.</p>
+
+<div class="error-box" style="background:#2a2410; color:#f0c040; border-color:#5a4a10;">
+  A Boladas-ponto-com não processa nem retém dinheiro. O pagamento é sempre direto entre
+  vocês (M-Pesa, E-Mola, transferência, dinheiro em mão). Isto é só um checklist de confiança.
+</div>
+
+<div class="card">
+  <p><strong>Estado atual:</strong> <span class="badge status-{{ tx['status'] }}">{{ tx['status'] }}</span></p>
+  <ul>
+    <li>{{ '✅' if tx['status'] in ['vendido', 'recebido'] else '⬜' }} Vendedor marcou como vendido</li>
+    <li>{{ '✅' if tx['status'] == 'recebido' else '⬜' }} Comprador marcou como recebido</li>
+  </ul>
+
+  {% if tx['with_mediation'] %}
+    <p class="muted">Pediram apoio da equipa Boladas para mediar esta transação — contacta
+    <strong>{{ platform_contact }}</strong> ou pela <a href="/mensagens/plataforma">mensagem à plataforma</a>
+    se precisares de ajuda.</p>
+  {% endif %}
+
+  {% if tx['status'] not in ['recebido', 'cancelado'] %}
+  <form method="post" action="/transacoes/{{ tx['transaction_id'] }}/estado" style="flex-direction: row; gap: 0.6rem;">
+    {% for action in next_actions %}
+      <button type="submit" name="new_status" value="{{ action }}">
+        {% if action == 'vendido' %}Marcar como vendido
+        {% elif action == 'recebido' %}Marcar como recebido
+        {% elif action == 'cancelado' %}Cancelar
+        {% else %}{{ action }}{% endif %}
+      </button>
+    {% endfor %}
+  </form>
+  {% endif %}
+
+  {% if post %}
+    <p style="margin-top:1rem;"><a href="/mensagens/posto/{{ post['post_id'] }}/{{ other_user['user_id'] }}">💬 Falar com {{ other_user['display_name'] }} sobre este produto →</a></p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -50,6 +50,12 @@
           </div>
           <button type="submit">Enviar mensagem</button>
         </form>
+
+        <form method="post" action="/posts/{{ post_id }}/transacao" style="margin-top:0.8rem; flex-direction: row; align-items: center; gap: 0.6rem;">
+          <input type="checkbox" id="with_mediation" name="with_mediation" style="width:auto;" />
+          <label for="with_mediation" style="margin:0; flex:1;">Pedir apoio da equipa Boladas para mediar</label>
+          <button type="submit">Tenho interesse em comprar</button>
+        </form>
       {% elif not current_user %}
         <p class="muted"><a href="/entrar">Entra</a> para contactares o vendedor sobre este produto.</p>
       {% endif %}
