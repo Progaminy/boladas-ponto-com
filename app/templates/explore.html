@@ -4,15 +4,15 @@
 <h1>Explorar</h1>
 <p class="subtitle">Navega negócios por categoria e localização, e compara preços em Metical.</p>
 
-<form method="get" action="/explorar" style="flex-direction: row; gap: 0.75rem; margin-bottom: 1.5rem;">
-  <select name="categoria" style="flex: 1;">
+<form method="get" action="/explorar" class="filter-form">
+  <select name="categoria">
     <option value="">Todas as categorias</option>
     {% for c in categories %}
     <option value="{{ c.slug }}" {% if selected_category == c.slug %}selected{% endif %}>{{ c.label }}</option>
     {% endfor %}
   </select>
-  <input type="text" name="local" placeholder="Localização (bairro, cidade)" value="{{ location_query }}" style="flex: 1;" />
-  <button type="submit" style="flex: 0 0 auto;">Filtrar</button>
+  <input type="text" name="local" placeholder="Localização (bairro, cidade)" value="{{ location_query }}" />
+  <button type="submit">Filtrar</button>
 </form>
 
 {% if not posts %}

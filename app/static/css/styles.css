@@ -23,12 +23,20 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
 .topbar .brand { font-weight: 700; color: var(--text); text-decoration: none; font-size: 1.1rem; }
-.topbar nav a { color: var(--text-dim); text-decoration: none; margin-left: 1.5rem; }
+.topbar nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+}
+.topbar nav a { color: var(--text-dim); text-decoration: none; }
 .topbar nav a:hover { color: var(--accent); }
 
 .container { max-width: 880px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
@@ -249,3 +257,53 @@ a { color: var(--accent); }
 .badge.status-badge-ok { background: #4ade80; }
 .badge.status-badge-failing { background: #f87171; }
 .badge.status-badge-not_configured { background: #f0c040; }
+
+/* --- formulário de filtros (explorar) --- */
+.filter-form {
+  flex-direction: row;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.filter-form select, .filter-form input { flex: 1; min-width: 0; }
+.filter-form button { flex: 0 0 auto; }
+
+/* --- navbar --- */
+.nav-user { padding-left: 0.5rem; border-left: 1px solid var(--border); }
+.nav-logout { display: inline; }
+.btn-link {
+  background: none;
+  color: var(--text-dim);
+  padding: 0;
+  font-weight: 400;
+  font-size: inherit;
+}
+.btn-link:hover { background: none; color: var(--accent); }
+
+/* --- responsivo (a maioria dos acessos é por telemóvel) --- */
+@media (max-width: 640px) {
+  .container { padding: 1.25rem 1rem 3rem; }
+
+  .topbar { padding: 0.85rem 1rem; }
+  .topbar nav { gap: 0.35rem 0.9rem; font-size: 0.9rem; }
+  .nav-user { border-left: none; padding-left: 0; }
+
+  /* campos lado a lado passam a empilhar: em ecrãs estreitos ficavam
+     demasiado apertados para escrever */
+  .field-row { grid-template-columns: 1fr; }
+
+  .filter-form { flex-direction: column !important; }
+  .filter-form select,
+  .filter-form input,
+  .filter-form button { width: 100%; }
+
+  .history-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; }
+
+  .hero { padding: 2rem 0 1.5rem; }
+  .hero-actions { flex-direction: column; }
+  .btn-primary, .btn-secondary { display: block; text-align: center; }
+
+  .step-grid { grid-template-columns: 1fr; }
+
+  pre.json-block { font-size: 0.72rem; }
+  .verify-files li { font-size: 0.7rem; }
+}
