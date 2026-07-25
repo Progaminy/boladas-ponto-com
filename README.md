@@ -19,6 +19,9 @@ Um post só aparece como `completed` depois de o Genblaze gerar realmente a imag
 - **Base de dados local**: SQLite (`data/posts.db`) — utilizadores, negócios e posts (histórico privado por utilizador).
 - **Composição da imagem**: a IA gera a imagem sem texto embutido (texto gerado por modelos de imagem costuma sair deformado); nome do negócio, preço em MT e chamada para ação são depois desenhados de forma determinística com Pillow (fonte DejaVu incluída no repositório), na cor da categoria — o `image.png` final já sai pronto a publicar.
 - **Limite de geração**: no máximo `MAX_POSTS_PER_USER_PER_DAY` (10 por omissão) posts por utilizador a cada 24h, para proteger os créditos do GMICloud.
+- **Média do produto**: até 4 fotos e 1 vídeo de 30s reais por post (para além da imagem gerada por IA), com validação real (Pillow reabre a imagem; `ffmpeg`/`ffprobe` mede a duração do vídeo — nunca confia só na extensão/`content_type` declarado pelo browser).
+- **Mensagens ("Boladas Message")**: contacto interno entre utilizadores sempre associado ao post/produto em causa, mais um canal separado para contactar a equipa da plataforma para ajuda/mediação.
+- **Termos de Uso**: aceitação obrigatória no registo (`/termos`), deixando explícito que a plataforma não processa nem retém pagamentos.
 
 ## Instalação
 
@@ -82,17 +85,22 @@ app/
 ├── models.py            # Pydantic: PostInput, UserCreate, BusinessInput, PostStatus...
 ├── categories.py         # categorias de negócio → cor/estilo de imagem
 ├── auth.py                # hash de password (bcrypt), sessão, get_current_user
-├── db.py                   # SQLite: users, businesses, posts
+├── db.py                   # SQLite: users, businesses, posts, messages, product_media
 ├── pipeline.py              # geração real via Genblaze + GMICloud
 ├── image_compose.py          # sobrepõe nome/preço/CTA na imagem com Pillow
-├── storage.py                  # upload/verificação (SHA-256 remoto) no B2
-├── provenance.py                 # montagem do provenance.json
-├── routers/                       # auth, business, explore, posts, history, provenance
-├── templates/                      # registar, entrar, empresa, explorar, criar,
-│                                     resultado, histórico, proveniência
-└── static/                          # css/js/fonts (DejaVu, para o overlay)
-tests/                                # pytest
+├── media_validate.py          # valida fotos/vídeo (Pillow + ffprobe), limites reais
+├── storage.py                   # upload/verificação (SHA-256 remoto) no B2
+├── provenance.py                  # montagem do provenance.json
+├── routers/                        # auth, business, explore, messages, media, posts,
+│                                     history, provenance
+├── templates/                       # registar, entrar, termos, empresa, explorar,
+│                                      criar, resultado, histórico, proveniência,
+│                                      inbox, thread, media_form
+└── static/                           # css/js/fonts (DejaVu, para o overlay)
+tests/                                 # pytest
 ```
+
+Dockerfile na raiz (usado pelo deploy no Render) instala `ffmpeg` para a validação real de vídeo.
 
 ## Conta de teste para os jurados
 
@@ -117,8 +125,10 @@ O repositório inclui um `render.yaml` (Blueprint) pronto:
 
 1. No [dashboard do Render](https://dashboard.render.com/), **New → Blueprint**, aponta para
    este repositório GitHub.
-2. O Render lê o `render.yaml` e cria um Web Service Python com build/start command já
-   configurados (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`) e `healthCheckPath: /health`.
+2. O Render lê o `render.yaml` e o `Dockerfile` e cria um Web Service Docker (não o runtime
+   Python nativo do Render) — é preciso Docker especificamente para instalar `ffmpeg`, usado
+   para validar a duração real dos vídeos de produto (ver `app/media_validate.py`); o runtime
+   Python nativo não permite instalar binários do sistema.
 3. Preenche os valores marcados `sync: false` no dashboard (nunca vão no `render.yaml`,
    que é público no repositório): `B2_KEY_ID`, `B2_APP_KEY`, `GMI_API_KEY`.
    `SESSION_SECRET_KEY` é gerada automaticamente pelo Render (`generateValue: true`).
@@ -141,6 +151,14 @@ o manifesto de proveniência (com o manifesto nativo do Genblaze embutido), hist
 por utilizador, galeria (com sessão) para explorar/comparar negócios por categoria e
 localização, e um limite diário de geração por utilizador. Qualquer erro inesperado durante
 a geração ou o upload marca o post como `failed` com a causa real — nunca fica preso num
-estado intermédio.
-Por fazer: gerar um post real de ponta a ponta com credenciais reais, deploy para URL
-pública, conta de demonstração para os jurados, vídeo de demonstração.
+estado intermédio. Termos de Uso obrigatórios no registo, mensagens internas ligadas ao
+post/produto (com canal separado para contactar a plataforma), e upload de até 4 fotos + 1
+vídeo de 30s reais por produto, com validação real de imagem/duração.
+Por fazer: rastreio de estado de transação (pendente/vendido/recebido, sem custódia de
+dinheiro — ver nota abaixo), moderação de conteúdo, gerar um post real de ponta a ponta com
+credenciais reais, deploy para URL pública, conta de demonstração para os jurados, vídeo de
+demonstração.
+
+**Nota sobre pagamentos:** o Boladas-ponto-com não processa nem retém dinheiro de
+utilizadores. Um mecanismo desse tipo (custódia/escrow) exigiria licenciamento como
+instituição de pagamento, o que está fora do âmbito deste MVP.

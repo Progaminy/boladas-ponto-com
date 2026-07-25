@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS product_media (
     content_type TEXT NOT NULL,
     size INTEGER NOT NULL,
     sha256 TEXT NOT NULL,
+    url TEXT NOT NULL,
     order_index INTEGER NOT NULL,
     created_at TEXT NOT NULL
 );
@@ -301,6 +302,47 @@ def mark_thread_read(user_id: str, post_id: str | None, other_user_id: str | Non
             "AND recipient_id = ? AND read_at IS NULL",
             (now, post_id, other_user_id, user_id),
         )
+
+
+def add_product_media(
+    media_id: str, post_id: str, media_type: str, b2_key: str, content_type: str,
+    size: int, sha256: str, url: str, order_index: int,
+) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO product_media (media_id, post_id, media_type, b2_key, content_type, "
+            "size, sha256, url, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (media_id, post_id, media_type, b2_key, content_type, size, sha256, url, order_index, _now()),
+        )
+
+
+def list_product_media(post_id: str) -> list[sqlite3.Row]:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT * FROM product_media WHERE post_id = ? ORDER BY order_index ASC",
+            (post_id,),
+        )
+        return cur.fetchall()
+
+
+def count_product_media(post_id: str, media_type: str) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT COUNT(*) as c FROM product_media WHERE post_id = ? AND media_type = ?",
+            (post_id, media_type),
+        )
+        return cur.fetchone()["c"]
+
+
+def get_product_media(media_id: str) -> sqlite3.Row | None:
+    with get_conn() as conn:
+        cur = conn.execute("SELECT * FROM product_media WHERE media_id = ?", (media_id,))
+        return cur.fetchone()
+
+
+def delete_product_media(media_id: str) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM product_media WHERE media_id = ?", (media_id,))
 
 
 def get_post(post_id: str) -> sqlite3.Row | None:

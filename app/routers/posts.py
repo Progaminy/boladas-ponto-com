@@ -207,6 +207,8 @@ def result_page(request: Request, post_id: str):
             request, "result.html", {"post": None, "post_id": post_id}, status_code=404
         )
     category = get_category(row["category"])
+    media = db.list_product_media(post_id)
     return templates.TemplateResponse(
-        request, "result.html", {"post": row, "post_id": post_id, "category": category}
+        request, "result.html",
+        {"post": row, "post_id": post_id, "category": category, "media": media},
     )

@@ -24,6 +24,24 @@
       <p>Contacto do negócio: {{ post['contact'] }}</p>
       <p><a href="/posts/{{ post_id }}/provenance">Ver detalhes da proveniência →</a></p>
 
+      {% if media %}
+      <h2>Fotos e vídeo do produto real</h2>
+      <div class="history-grid">
+        {% for m in media %}
+        <div class="card" style="padding: 0.6rem;">
+          {% if m['media_type'] == 'photo' %}
+            <img src="{{ m['url'] }}" alt="foto do produto" />
+          {% else %}
+            <video src="{{ m['url'] }}" controls style="width:100%; border-radius:8px;"></video>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if current_user and current_user['user_id'] == post['user_id'] %}
+        <p><a href="/posts/{{ post_id }}/media">📷 Gerir fotos/vídeo do produto ({{ media|length }}/5)</a></p>
+      {% endif %}
+
       {% if current_user and current_user['user_id'] != post['user_id'] %}
         <form method="post" action="/posts/{{ post_id }}/contactar" style="margin-top:1rem;">
           <div class="field">

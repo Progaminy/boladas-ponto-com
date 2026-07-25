@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Fotos e vídeo — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Fotos e vídeo do produto</h1>
+<p class="subtitle">Até 4 fotos e 1 vídeo de 30 segundos, para mostrar o produto real ao lado da imagem gerada por IA. <a href="/posts/{{ post['post_id'] }}">← Voltar ao post</a></p>
+
+{% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+
+{% if media %}
+<div class="history-grid" style="margin-bottom: 1.5rem;">
+  {% for m in media %}
+  <div class="card" style="padding: 0.6rem;">
+    {% if m['media_type'] == 'photo' %}
+      <img src="{{ m['url'] }}" alt="foto do produto" />
+    {% else %}
+      <video src="{{ m['url'] }}" controls style="width:100%; border-radius:8px;"></video>
+    {% endif %}
+    <form method="post" action="/posts/{{ post['post_id'] }}/media/{{ m['media_id'] }}/apagar" style="margin-top:0.4rem;">
+      <button type="submit" style="background:#5a1e1e; color:#fff; font-size:0.8rem; padding:0.3rem 0.6rem;">Apagar</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if photos_left > 0 or videos_left > 0 %}
+<form method="post" action="/posts/{{ post['post_id'] }}/media" enctype="multipart/form-data">
+  {% if photos_left > 0 %}
+  <div class="field">
+    <label for="photos">Fotos (até {{ photos_left }} mais)</label>
+    <input type="file" id="photos" name="photos" accept="image/jpeg,image/png,image/webp" multiple />
+  </div>
+  {% endif %}
+  {% if videos_left > 0 %}
+  <div class="field">
+    <label for="video">Vídeo (máx. 30 segundos)</label>
+    <input type="file" id="video" name="video" accept="video/mp4,video/webm,video/quicktime" />
+  </div>
+  {% endif %}
+  <button type="submit">Enviar</button>
+</form>
+{% else %}
+<p class="muted">Já atingiste o limite de fotos e vídeo para este produto.</p>
+{% endif %}
+
+{% endblock %}
