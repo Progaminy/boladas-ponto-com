@@ -82,6 +82,16 @@ def test_create_post_without_session_returns_401(client):
     assert resp.json()["error"]
 
 
+def test_post_result_and_provenance_public_without_session(client):
+    # partilhável sem conta — devolve 404 real (não redireciona para /entrar)
+    # porque o post não existe, mas a rota em si não exige sessão.
+    resp = client.get("/posts/inexistente", follow_redirects=False)
+    assert resp.status_code == 404
+
+    resp = client.get("/posts/inexistente/provenance", follow_redirects=False)
+    assert resp.status_code == 404
+
+
 def test_explorar_requires_session(client):
     resp = client.post(
         "/registar",

@@ -4,7 +4,7 @@
 
 Aplicação de geração de posts para redes sociais criada para o **Backblaze Generative Media Hackathon**. Transforma o briefing de um negócio (tema, produto/serviço, público-alvo, tom, chamada para ação, categoria, preço em Metical, localização e contacto) num post pronto a publicar — imagem 1080×1080, legenda, chamada para ação e hashtags — usando o SDK **[Genblaze](https://github.com/backblaze-labs/genblaze)** com o provedor **GMICloud**, e guarda tudo no **Backblaze B2** com um manifesto de proveniência verificável (SHA-256).
 
-Serve tanto empresas com marca própria (estilizadas por categoria de negócio) como utilizadores simples que querem anunciar sem ter uma marca. Cada utilizador regista-se, pode opcionalmente registar um negócio (ex.: uma confeitaria) com perfil próprio, publica posts em nome próprio ou do negócio, e explora os posts de outros negócios por categoria e localização para comparar preços — tudo isto exige conta, como no Facebook. O número `872599084` é o contacto fixo da plataforma para mediação entre compradores e vendedores.
+Serve tanto empresas com marca própria (estilizadas por categoria de negócio) como utilizadores simples que querem anunciar sem ter uma marca. Cada utilizador regista-se, pode opcionalmente registar um negócio (ex.: uma confeitaria) com perfil próprio, publica posts em nome próprio ou do negócio, e explora os posts de outros negócios por categoria e localização para comparar preços — isto exige conta, como no Facebook. Já cada post individual e a sua proveniência têm uma página pública e partilhável (sem conta), para poderem ser divulgados e verificados por qualquer pessoa. O número `872599084` é o contacto fixo da plataforma para mediação entre compradores e vendedores.
 
 ## Princípio: Nunca fingir
 
@@ -13,7 +13,7 @@ Um post só aparece como `completed` depois de o Genblaze gerar realmente a imag
 ## Stack
 
 - **Backend + frontend**: FastAPI + Jinja2 (um único serviço Python).
-- **Geração**: [`genblaze`](https://pypi.org/project/genblaze-core/) (`genblaze-core` + `genblaze-gmicloud` + `genblaze-s3`) — imagem via GMICloud (`GMICloudImageProvider`, modelo `seedream-5.0-lite` por omissão) e legenda/CTA/hashtags via `chat()` da GMICloud (modelo `deepseek-ai/DeepSeek-V3` por omissão).
+- **Geração**: [`genblaze`](https://pypi.org/project/genblaze-core/) (`genblaze-core` + `genblaze-gmicloud` + `genblaze-s3`) — imagem via GMICloud (`GMICloudImageProvider`, modelo `seedream-5.0-lite` por omissão) e legenda/CTA/hashtags via `chat()` da GMICloud (modelo `deepseek-ai/DeepSeek-V3-0324` por omissão — lista completa de modelos disponíveis em `GET https://api.gmi-serving.com/v1/models` com a tua `GMI_API_KEY`).
 - **Armazenamento**: Backblaze B2, bucket `pensador-sem-fronteiras-media`, layout `posts/<post_id>/{image.png,caption.txt,provenance.json,thumbnail.webp}` — este layout não depende do utilizador que criou o post (multiutilizador é só ao nível da base de dados da app, não do B2).
 - **Autenticação**: registo/login com password (hash `bcrypt`) e sessão assinada por cookie (`itsdangerous`/`SessionMiddleware`).
 - **Base de dados local**: SQLite (`data/posts.db`) — utilizadores, negócios e posts (histórico privado por utilizador).
@@ -54,16 +54,16 @@ uvicorn app.main:app --reload
 http://127.0.0.1:8000
 
 
-Sem sessão (só isto fica acessível — como no Facebook, é preciso conta para tudo o resto):
+Sem sessão:
 - `http://localhost:8000/registar`, `http://localhost:8000/entrar` — criar conta / iniciar sessão
 - `http://localhost:8000/health` — estado da configuração (B2/GMICloud ligados ou não)
+- `http://localhost:8000/posts/<post_id>` e `/posts/<post_id>/provenance` — resultado e proveniência de um post, partilháveis (ex.: WhatsApp) e verificáveis por qualquer pessoa, incluindo os jurados, sem precisar de conta
 
 Requer sessão (redireciona para `/entrar` se não autenticado):
 - `http://localhost:8000/explorar` — galeria de negócios, filtrável por categoria e localização
 - `http://localhost:8000/criar` — formulário de criação de post
 - `http://localhost:8000/empresa` — registar/editar o negócio próprio; `/negocio/<business_id>` — perfil do negócio
 - `http://localhost:8000/historico` — histórico privado dos meus posts (inclui `pending`/`failed`)
-- `http://localhost:8000/posts/<post_id>` e `/posts/<post_id>/provenance` — resultado e proveniência de um post
 
 ## Testes
 
@@ -96,8 +96,11 @@ tests/                                # pytest
 
 ## Conta de teste para os jurados
 
-A aplicação exige sessão para tudo — registo/login são as únicas páginas públicas. Para os
-jurados testarem o fluxo completo, cria-se uma conta de demonstração após o deploy:
+Registo/login, explorar, criar posts, histórico e perfil de negócio exigem sessão. A página
+de resultado de um post e a sua proveniência (`/posts/<id>` e `/posts/<id>/provenance`) são
+públicas e partilháveis, para poderem ser verificadas sem conta. Para os jurados testarem o
+fluxo completo (criar posts, ver histórico, negócio), cria-se uma conta de demonstração após
+o deploy:
 
 ```bash
 curl -X POST https://<url-pública>/registar \
@@ -107,6 +110,27 @@ curl -X POST https://<url-pública>/registar \
 (ou simplesmente usar o formulário em `/registar`). As credenciais finais de demonstração
 serão indicadas na submissão do Devpost, conforme exigido pelas regras oficiais do hackathon
 para aplicações com login.
+
+## Deploy (Render)
+
+O repositório inclui um `render.yaml` (Blueprint) pronto:
+
+1. No [dashboard do Render](https://dashboard.render.com/), **New → Blueprint**, aponta para
+   este repositório GitHub.
+2. O Render lê o `render.yaml` e cria um Web Service Python com build/start command já
+   configurados (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`) e `healthCheckPath: /health`.
+3. Preenche os valores marcados `sync: false` no dashboard (nunca vão no `render.yaml`,
+   que é público no repositório): `B2_KEY_ID`, `B2_APP_KEY`, `GMI_API_KEY`.
+   `SESSION_SECRET_KEY` é gerada automaticamente pelo Render (`generateValue: true`).
+4. Deploy. A URL pública fica em `https://boladas-ponto-com.onrender.com` (ou o nome que o
+   Render atribuir).
+
+**Limitação conhecida:** `data/posts.db` (SQLite) vive no disco do serviço. No plano free do
+Render o disco não é persistente entre deploys/reinícios — os utilizadores/negócios/histórico
+locais perdem-se nesses momentos (os ficheiros já gerados no Backblaze B2 não são afetados,
+só o índice local). Para persistência real seria preciso um disco pago do Render ou migrar
+para uma base de dados gerida (ex. PostgreSQL do Render). Para a demonstração do hackathon
+isto é aceitável, mas é uma limitação a resolver antes de um uso real em produção.
 
 ## Estado atual
 

@@ -20,7 +20,7 @@ B2_BUCKET = os.environ.get("B2_BUCKET", "pensador-sem-fronteiras-media")
 
 GMI_API_KEY = os.environ.get("GMI_API_KEY")
 GMI_IMAGE_MODEL = os.environ.get("GMI_IMAGE_MODEL", "seedream-5.0-lite")
-GMI_CHAT_MODEL = os.environ.get("GMI_CHAT_MODEL", "deepseek-ai/DeepSeek-V3")
+GMI_CHAT_MODEL = os.environ.get("GMI_CHAT_MODEL", "deepseek-ai/DeepSeek-V3-0324")
 
 IMAGE_SIZE_PX = 1080
 

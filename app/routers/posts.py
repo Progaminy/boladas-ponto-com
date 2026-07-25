@@ -199,9 +199,8 @@ def _make_thumbnail(png_bytes: bytes) -> bytes:
 
 @router.get("/posts/{post_id}", response_class=HTMLResponse)
 def result_page(request: Request, post_id: str):
-    if get_current_user(request) is None:
-        return RedirectResponse("/entrar", status_code=303)
-
+    # Público de propósito: um post tem de poder ser partilhado (WhatsApp,
+    # redes sociais) e a sua proveniência verificada sem exigir conta.
     row = db.get_post(post_id)
     if row is None:
         return templates.TemplateResponse(

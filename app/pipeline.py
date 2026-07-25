@@ -73,7 +73,7 @@ def generate_image(data: PostInput, category: Category) -> ImageResult:
             modality=Modality.IMAGE,
             **params,
         )
-        .run(timeout=180, max_retries=1)
+        .run(timeout=180, max_retries=1, raise_on_failure=False)
     )
     run, manifest = result
 
