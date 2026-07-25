@@ -48,6 +48,10 @@ def build_provenance(
             ],
             "parameters": image_result.params,
             "genblaze_used": True,
+            # Estrutura ampliada (permitido pela especificação): dados reais do
+            # manifesto nativo do Genblaze para a etapa de imagem, para que a
+            # geração seja verificável além da nossa própria reformatação.
+            "genblaze_manifest": image_result.genblaze_manifest,
         },
         "files": {
             "image": {

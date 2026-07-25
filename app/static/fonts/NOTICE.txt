@@ -1,0 +1,4 @@
+DejaVu Sans / DejaVu Sans Bold — https://dejavu-fonts.github.io/
+Based on Bitstream Vera, (c) 2003 Bitstream, Inc. DejaVu changes are public domain.
+Licensed under the Bitstream Vera License (free to use, copy, and redistribute).
+Included unmodified for deterministic text overlay on generated post images.

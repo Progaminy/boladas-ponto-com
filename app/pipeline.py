@@ -30,6 +30,7 @@ class ImageResult:
     prompt: str
     params: dict
     source_url: str
+    genblaze_manifest: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -87,6 +88,26 @@ def generate_image(data: PostInput, category: Category) -> ImageResult:
     resp.raise_for_status()
     image_bytes = _to_square_png(resp.content, IMAGE_SIZE_PX)
 
+    genblaze_manifest = {
+        "run_id": run.run_id,
+        "schema_version": manifest.schema_version,
+        "canonical_hash": manifest.canonical_hash,
+        "manifest_verified": manifest.verify(),
+        "step_status": step.status,
+        "step_id": step.step_id,
+        "retries": step.retries,
+        "cost_usd": step.cost_usd,
+        "started_at": step.started_at.isoformat() if step.started_at else None,
+        "completed_at": step.completed_at.isoformat() if step.completed_at else None,
+        "source_asset": {
+            "asset_id": asset.asset_id,
+            "media_type": asset.media_type,
+            "width": asset.width,
+            "height": asset.height,
+            "sha256": asset.sha256,
+        },
+    }
+
     return ImageResult(
         bytes_=image_bytes,
         content_type="image/png",
@@ -95,6 +116,7 @@ def generate_image(data: PostInput, category: Category) -> ImageResult:
         prompt=prompt,
         params=params,
         source_url=asset.url,
+        genblaze_manifest=genblaze_manifest,
     )
 
 

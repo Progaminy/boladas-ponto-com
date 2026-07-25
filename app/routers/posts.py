@@ -1,6 +1,7 @@
 import io
 import json
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -9,6 +10,8 @@ from PIL import Image
 from app import db
 from app.auth import get_current_user
 from app.categories import get_category, list_categories
+from app.config import MAX_POSTS_PER_USER_PER_DAY
+from app.image_compose import add_business_overlay
 from app.models import PostInput, PostStatus, PublisherType
 from app.pipeline import GenerationError, generate_caption, generate_image
 from app.provenance import build_caption_txt, build_provenance
@@ -59,6 +62,19 @@ def create_post(
     if user is None:
         return JSONResponse({"error": "Sessão expirada. Entra novamente."}, status_code=401)
 
+    since = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    recent_count = db.count_posts_by_user_since(user["user_id"], since)
+    if recent_count >= MAX_POSTS_PER_USER_PER_DAY:
+        return JSONResponse(
+            {
+                "error": (
+                    f"Limite de {MAX_POSTS_PER_USER_PER_DAY} posts por dia atingido. "
+                    "Tenta novamente mais tarde."
+                )
+            },
+            status_code=429,
+        )
+
     try:
         post_input = PostInput(
             theme=theme,
@@ -103,11 +119,22 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
     except GenerationError as exc:
         db.update_status(post_id, PostStatus.FAILED, error=str(exc))
         return {"post_id": post_id, "status": PostStatus.FAILED.value, "error": str(exc)}
+    except Exception as exc:  # nunca deixar um post preso em "generating"
+        error = f"Falha inesperada na geração ({type(exc).__name__}): {exc}"
+        db.update_status(post_id, PostStatus.FAILED, error=error)
+        return {"post_id": post_id, "status": PostStatus.FAILED.value, "error": error}
 
     db.update_status(post_id, PostStatus.UPLOADING)
     try:
+        final_image_bytes = add_business_overlay(
+            image_result.bytes_,
+            category=category,
+            business_name=post_input.brand_name or post_input.business,
+            price_mt=post_input.price_mt,
+            call_to_action=caption_result.call_to_action,
+        )
         image_file = upload_and_verify(
-            post_key(post_id, "image.png"), image_result.bytes_, "image/png"
+            post_key(post_id, "image.png"), final_image_bytes, "image/png"
         )
         caption_txt = build_caption_txt(caption_result)
         caption_file = upload_and_verify(
@@ -116,12 +143,12 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
 
         thumbnail_key = None
         try:
-            thumb_bytes = _make_thumbnail(image_result.bytes_)
+            thumb_bytes = _make_thumbnail(final_image_bytes)
             thumb_file = upload_and_verify(
                 post_key(post_id, "thumbnail.webp"), thumb_bytes, "image/webp"
             )
             thumbnail_key = thumb_file.key
-        except StorageError:
+        except Exception:
             thumbnail_key = None  # miniatura é best-effort; não bloqueia o post
 
         provenance_doc = build_provenance(
@@ -141,6 +168,10 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
     except StorageError as exc:
         db.update_status(post_id, PostStatus.FAILED, error=str(exc))
         return {"post_id": post_id, "status": PostStatus.FAILED.value, "error": str(exc)}
+    except Exception as exc:  # nunca deixar um post preso em "uploading"
+        error = f"Falha inesperada no armazenamento ({type(exc).__name__}): {exc}"
+        db.update_status(post_id, PostStatus.FAILED, error=error)
+        return {"post_id": post_id, "status": PostStatus.FAILED.value, "error": error}
 
     db.save_generation_result(
         post_id,

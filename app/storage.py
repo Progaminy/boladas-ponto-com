@@ -48,11 +48,13 @@ def sha256_hex(data: bytes) -> str:
 
 
 def upload_and_verify(key: str, data: bytes, content_type: str) -> UploadedFile:
-    """Envia `data` para `key` no B2 e confirma o upload com head() antes de
-    devolver sucesso. Levanta StorageError se a confirmação falhar ou o
-    tamanho não corresponder ao que foi enviado — nunca finge sucesso."""
+    """Envia `data` para `key` no B2 e confirma o upload voltando a descarregar
+    o objeto e recalculando o SHA-256 sobre o conteúdo realmente armazenado —
+    não basta existir e ter o tamanho certo, o hash local e o hash do B2 têm
+    de bater certo. Levanta StorageError em qualquer divergência: nunca finge
+    uma verificação que não foi feita."""
     backend = get_backend()
-    digest = sha256_hex(data)
+    local_digest = sha256_hex(data)
 
     backend.put(key, data, content_type=content_type)
 
@@ -65,10 +67,18 @@ def upload_and_verify(key: str, data: bytes, content_type: str) -> UploadedFile:
             f"esperado {len(data)}."
         )
 
+    remote_bytes = backend.get(key)
+    remote_digest = sha256_hex(remote_bytes)
+    if remote_digest != local_digest:
+        raise StorageError(
+            f"Upload corrompido: SHA-256 de {key} no B2 ({remote_digest}) não "
+            f"corresponde ao SHA-256 enviado ({local_digest})."
+        )
+
     return UploadedFile(
         key=key,
         content_type=content_type,
         size=len(data),
-        sha256=digest,
+        sha256=remote_digest,
         url=backend.get_durable_url(key),
     )

@@ -21,6 +21,9 @@ class FakeBackend:
             return None
         return FakeMeta(size=len(self.objects[key]))
 
+    def get(self, key, **kwargs):
+        return self.objects[key]
+
     def get_durable_url(self, key):
         return f"https://fake-b2.example/{key}"
 
@@ -71,4 +74,17 @@ def test_upload_and_verify_raises_on_size_mismatch(monkeypatch):
     monkeypatch.setattr(storage, "get_backend", lambda: CorruptingBackend())
 
     with pytest.raises(storage.StorageError):
+        storage.upload_and_verify("posts/x/image.png", b"more than one byte", "image/png")
+
+
+def test_upload_and_verify_raises_on_remote_hash_mismatch(monkeypatch):
+    class BitFlippingBackend(FakeBackend):
+        def get(self, key, **kwargs):
+            # mesmo tamanho, conteúdo diferente — simula corrupção silenciosa
+            original = self.objects[key]
+            return b"X" + original[1:]
+
+    monkeypatch.setattr(storage, "get_backend", lambda: BitFlippingBackend())
+
+    with pytest.raises(storage.StorageError, match="SHA-256"):
         storage.upload_and_verify("posts/x/image.png", b"more than one byte", "image/png")

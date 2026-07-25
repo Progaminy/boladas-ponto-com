@@ -210,6 +210,15 @@ def get_post(post_id: str) -> sqlite3.Row | None:
         return cur.fetchone()
 
 
+def count_posts_by_user_since(user_id: str, since_iso: str) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT COUNT(*) as c FROM posts WHERE user_id = ? AND created_at >= ?",
+            (user_id, since_iso),
+        )
+        return cur.fetchone()["c"]
+
+
 def list_posts_by_user(user_id: str, limit: int = 50) -> list[sqlite3.Row]:
     with get_conn() as conn:
         cur = conn.execute(

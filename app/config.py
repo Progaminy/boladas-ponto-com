@@ -24,6 +24,10 @@ GMI_CHAT_MODEL = os.environ.get("GMI_CHAT_MODEL", "deepseek-ai/DeepSeek-V3")
 
 IMAGE_SIZE_PX = 1080
 
+# Protege os créditos do GMICloud contra abuso: máximo de posts que um
+# utilizador pode gerar por dia (janela deslizante de 24h).
+MAX_POSTS_PER_USER_PER_DAY = int(os.environ.get("MAX_POSTS_PER_USER_PER_DAY", "10"))
+
 # Usado para assinar o cookie de sessão (login). Em produção define um valor
 # aleatório fixo em .env — se não definido, gera-se um por processo (as
 # sessões não sobrevivem a um restart, o que é aceitável em dev).
