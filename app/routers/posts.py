@@ -35,25 +35,25 @@ def create_form(request: Request):
     if user is None:
         return RedirectResponse("/entrar", status_code=303)
 
-    business = db.get_business_by_user(user["user_id"])
+    businesses = db.list_businesses_by_user(user["user_id"])
     return templates.TemplateResponse(
-        request, "create.html", {"categories": list_categories(), "business": business}
+        request, "create.html", {"categories": list_categories(), "businesses": businesses}
     )
 
 
 @router.post("/posts")
 def create_post(
     request: Request,
-    theme: str = Form(...),
+    theme: str | None = Form(None),
     business: str = Form(...),
     category: str = Form(...),
-    publisher_type: str = Form(...),
-    brand_name: str | None = Form(None),
-    target_audience: str = Form(...),
-    objective: str = Form(...),
-    tone: str = Form(...),
+    category_custom: str | None = Form(None),
+    publish_as: str = Form("individual"),
+    target_audience: str | None = Form(None),
+    objective: str | None = Form(None),
+    tone: str | None = Form(None),
     language: str = Form("pt"),
-    call_to_action: str = Form(...),
+    call_to_action: str | None = Form(None),
     price_mt: float | None = Form(None),
     location: str | None = Form(None),
     contact: str = Form(...),
@@ -76,18 +76,38 @@ def create_post(
             status_code=429,
         )
 
+    selected_business_id = None
+    brand_name = None
+    if publish_as != "individual":
+        candidate = db.get_business(publish_as)
+        if candidate is None or candidate["user_id"] != user["user_id"]:
+            return JSONResponse({"error": "Empresa inválida."}, status_code=422)
+        selected_business_id = publish_as
+        brand_name = candidate["name"]
+
+    final_category = (category_custom or "").strip() or category
+
+    # Modo simples (publicação individual/eventual): campos avançados ficam
+    # colapsados no formulário com valores pré-preenchidos; isto garante os
+    # mesmos valores por omissão também para quem submeter sem JS/via API.
+    final_theme = (theme or "").strip() or business
+    final_target_audience = (target_audience or "").strip() or "Pessoas interessadas em comprar"
+    final_objective = (objective or "").strip() or "Vender rapidamente"
+    final_tone = (tone or "").strip() or "casual e direto"
+    final_call_to_action = (call_to_action or "").strip() or "Contacta-me já!"
+
     try:
         post_input = PostInput(
-            theme=theme,
+            theme=final_theme,
             business=business,
-            category=category,
-            publisher_type=PublisherType(publisher_type),
-            brand_name=brand_name or None,
-            target_audience=target_audience,
-            objective=objective,
-            tone=tone,
+            category=final_category,
+            publisher_type=PublisherType.BUSINESS if selected_business_id else PublisherType.INDIVIDUAL,
+            brand_name=brand_name,
+            target_audience=final_target_audience,
+            objective=final_objective,
+            tone=final_tone,
             language=language,
-            call_to_action=call_to_action,
+            call_to_action=final_call_to_action,
             price_mt=price_mt,
             location=location or None,
             contact=contact,
@@ -106,15 +126,8 @@ def create_post(
             status_code=422,
         )
 
-    user_business = db.get_business_by_user(user["user_id"])
-    business_id = (
-        user_business["business_id"]
-        if user_business and post_input.publisher_type == PublisherType.BUSINESS
-        else None
-    )
-
     post_id = uuid.uuid4().hex
-    db.create_post(post_id, user["user_id"], business_id, post_input)
+    db.create_post(post_id, user["user_id"], selected_business_id, post_input)
 
     result = _run_generation(post_id, post_input)
     return JSONResponse(result, status_code=200 if result["status"] == "completed" else 502)

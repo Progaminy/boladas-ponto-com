@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}As minhas empresas — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>As minhas empresas</h1>
+<p class="subtitle">Podes registar quantas empresas quiseres e publicar posts em nome de qualquer uma delas, ou como tu próprio.</p>
+
+<p><a href="/empresa/nova">+ Registar nova empresa</a></p>
+
+{% if not businesses %}
+  <p class="muted">Ainda não tens nenhuma empresa registada.</p>
+{% else %}
+<div class="history-grid">
+  {% for b in businesses %}
+  <div class="card" style="padding: 0.6rem;">
+    {% if b['profile_photo_url'] %}<img src="{{ b['profile_photo_url'] }}" alt="{{ b['name'] }}" />{% endif %}
+    <p style="margin: 0.6rem 0 0.2rem; font-weight: 600;">{{ b['name'] }}</p>
+    <p class="muted" style="margin:0; font-size:0.85rem;">{{ b['category'] }}</p>
+    <p style="margin-top:0.4rem;">
+      <a href="/negocio/{{ b['business_id'] }}">Ver perfil</a> &middot;
+      <a href="/empresa/{{ b['business_id'] }}/editar">Editar</a>
+    </p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

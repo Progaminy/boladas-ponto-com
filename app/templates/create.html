@@ -2,80 +2,80 @@
 {% block title %}Criar post — Boladas-ponto-com{% endblock %}
 {% block content %}
 <h1>Criar post</h1>
-<p class="subtitle">Descreve o teu negócio e o Genblaze gera a imagem, legenda, chamada para ação e hashtags — tudo guardado no Backblaze B2 com proveniência verificável.</p>
-
-{% if not business %}
-<p class="muted">Não tens uma empresa registada — vais publicar como utilizador simples. <a href="/empresa">Registar empresa</a></p>
-{% endif %}
+<p class="subtitle">Descreve o que vais anunciar e o Genblaze gera a imagem, legenda, chamada para ação e hashtags — tudo guardado no Backblaze B2 com proveniência verificável.</p>
 
 <form id="post-form">
-  <fieldset>
-    <legend>Publicador</legend>
-    <div class="field-row">
-      <div class="field">
-        <label for="publisher_type">Tipo de publicador</label>
-        <select id="publisher_type" name="publisher_type" required>
-          <option value="individual">Utilizador simples (sem marca)</option>
-          <option value="business" {% if business %}selected{% endif %}>Empresa / marca{% if business %} — {{ business['name'] }}{% endif %}</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="brand_name">Nome da marca (se aplicável)</label>
-        <input type="text" id="brand_name" name="brand_name" maxlength="120" value="{{ business['name'] if business else '' }}" />
-      </div>
-    </div>
-  </fieldset>
+  <div class="field">
+    <label for="publish_as">Publicar como</label>
+    <select id="publish_as" name="publish_as">
+      <option value="individual">Eu mesmo (venda pessoal/eventual)</option>
+      {% for b in businesses %}
+      <option value="{{ b['business_id'] }}"
+              data-category="{{ b['category'] }}"
+              data-location="{{ b['location'] or '' }}"
+              data-contact="{{ b['contact'] }}">
+        {{ b['name'] }}
+      </option>
+      {% endfor %}
+    </select>
+    {% if not businesses %}
+    <p class="muted" style="margin:0.3rem 0 0; font-size:0.85rem;">Não tens nenhuma empresa registada. <a href="/empresa/nova">Registar empresa</a> se quiseres publicar em nome de um negócio.</p>
+    {% endif %}
+  </div>
 
-  <fieldset>
-    <legend>Negócio</legend>
-    <div class="field">
-      <label for="business">Produto, serviço ou negócio *</label>
-      <input type="text" id="business" name="business" required maxlength="120" />
-    </div>
-    <div class="field">
-      <label for="category">Categoria *</label>
-      <select id="category" name="category" required>
-        {% for c in categories %}
-        <option value="{{ c.slug }}" {% if business and business['category'] == c.slug %}selected{% endif %}>{{ c.label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="price_mt">Preço (MT)</label>
-        <input type="number" id="price_mt" name="price_mt" min="0" step="0.01" />
-      </div>
-      <div class="field">
-        <label for="location">Localização</label>
-        <input type="text" id="location" name="location" maxlength="160" placeholder="Bairro, cidade" value="{{ business['location'] if business else '' }}" />
-      </div>
-    </div>
-    <div class="field">
-      <label for="contact">Contacto (telefone / WhatsApp) *</label>
-      <input type="text" id="contact" name="contact" required maxlength="60" value="{{ business['contact'] if business else '' }}" />
-    </div>
-  </fieldset>
+  <div class="field">
+    <label for="business">O que estás a vender/oferecer? *</label>
+    <input type="text" id="business" name="business" required maxlength="120" placeholder="Ex: Camisa vintage tamanho M" />
+  </div>
 
-  <fieldset>
-    <legend>Briefing do post</legend>
+  <div class="field">
+    <label for="category">Categoria *</label>
+    <select id="category" name="category" required>
+      {% for c in categories %}
+      <option value="{{ c.slug }}">{{ c.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="category_custom">Ou escreve uma categoria diferente (opcional)</label>
+    <input type="text" id="category_custom" name="category_custom" maxlength="60" placeholder="Se a tua categoria não estiver na lista" />
+  </div>
+
+  <div class="field-row">
     <div class="field">
-      <label for="theme">Tema ou ideia do post *</label>
-      <input type="text" id="theme" name="theme" required maxlength="200" />
+      <label for="price_mt">Preço (MT)</label>
+      <input type="number" id="price_mt" name="price_mt" min="0" step="0.01" />
+    </div>
+    <div class="field">
+      <label for="location">Localização</label>
+      <input type="text" id="location" name="location" maxlength="160" placeholder="Bairro, cidade" />
+    </div>
+  </div>
+  <div class="field">
+    <label for="contact">Contacto (telefone / WhatsApp) *</label>
+    <input type="text" id="contact" name="contact" required maxlength="60" />
+  </div>
+
+  <details id="advanced-options">
+    <summary style="cursor:pointer;">Opções avançadas (legenda personalizada)</summary>
+    <div class="field" style="margin-top:0.8rem;">
+      <label for="theme">Tema ou ideia do post</label>
+      <input type="text" id="theme" name="theme" maxlength="200" placeholder="Deixa em branco para usar a descrição acima" />
     </div>
     <div class="field-row">
       <div class="field">
-        <label for="target_audience">Público-alvo *</label>
-        <input type="text" id="target_audience" name="target_audience" required maxlength="200" />
+        <label for="target_audience">Público-alvo</label>
+        <input type="text" id="target_audience" name="target_audience" maxlength="200" value="Pessoas interessadas em comprar" />
       </div>
       <div class="field">
-        <label for="objective">Objetivo da publicação *</label>
-        <input type="text" id="objective" name="objective" required maxlength="200" />
+        <label for="objective">Objetivo da publicação</label>
+        <input type="text" id="objective" name="objective" maxlength="200" value="Vender rapidamente" />
       </div>
     </div>
     <div class="field-row">
       <div class="field">
-        <label for="tone">Tom da comunicação *</label>
-        <input type="text" id="tone" name="tone" required maxlength="60" placeholder="Ex: amigável, profissional" />
+        <label for="tone">Tom da comunicação</label>
+        <input type="text" id="tone" name="tone" maxlength="60" value="casual e direto" />
       </div>
       <div class="field">
         <label for="language">Idioma</label>
@@ -86,14 +86,14 @@
       </div>
     </div>
     <div class="field">
-      <label for="call_to_action">Chamada para ação *</label>
-      <input type="text" id="call_to_action" name="call_to_action" required maxlength="120" placeholder="Ex: Contacta-nos já!" />
+      <label for="call_to_action">Chamada para ação</label>
+      <input type="text" id="call_to_action" name="call_to_action" maxlength="120" value="Contacta-me já!" />
     </div>
     <div class="field">
       <label for="color_reference">Cores ou referência visual (opcional)</label>
       <input type="text" id="color_reference" name="color_reference" maxlength="60" placeholder="Ex: laranja e preto" />
     </div>
-  </fieldset>
+  </details>
 
   <button type="submit" id="submit-btn">Gerar post</button>
   <div id="status-banner" class="status-banner"></div>
@@ -102,5 +102,27 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+  const publishAs = document.getElementById("publish_as");
+  const categorySelect = document.getElementById("category");
+  const locationInput = document.getElementById("location");
+  const contactInput = document.getElementById("contact");
+  const advanced = document.getElementById("advanced-options");
+
+  publishAs.addEventListener("change", () => {
+    const opt = publishAs.selectedOptions[0];
+    if (publishAs.value === "individual") return;
+    if (opt.dataset.category) categorySelect.value = opt.dataset.category;
+    if (opt.dataset.location && !locationInput.value) locationInput.value = opt.dataset.location;
+    if (opt.dataset.contact && !contactInput.value) contactInput.value = opt.dataset.contact;
+    advanced.open = true;
+  });
+
+  document.getElementById("post-form").addEventListener("submit", () => {
+    const themeInput = document.getElementById("theme");
+    const businessInput = document.getElementById("business");
+    if (!themeInput.value.trim()) themeInput.value = businessInput.value;
+  }, true);
+</script>
 <script src="/static/js/app.js"></script>
 {% endblock %}

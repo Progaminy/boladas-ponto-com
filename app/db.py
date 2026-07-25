@@ -14,7 +14,11 @@ CREATE TABLE IF NOT EXISTS users (
     display_name TEXT NOT NULL,
     created_at TEXT NOT NULL,
     terms_accepted_at TEXT,
-    is_admin INTEGER NOT NULL DEFAULT 0
+    is_admin INTEGER NOT NULL DEFAULT 0,
+    profile_photo_key TEXT,
+    profile_photo_url TEXT,
+    cover_photo_key TEXT,
+    cover_photo_url TEXT
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -67,12 +71,16 @@ CREATE TABLE IF NOT EXISTS reports (
 
 CREATE TABLE IF NOT EXISTS businesses (
     business_id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL UNIQUE REFERENCES users(user_id),
+    user_id TEXT NOT NULL REFERENCES users(user_id),
     name TEXT NOT NULL,
     category TEXT NOT NULL,
     description TEXT,
     location TEXT,
     contact TEXT NOT NULL,
+    profile_photo_key TEXT,
+    profile_photo_url TEXT,
+    cover_photo_key TEXT,
+    cover_photo_url TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -134,11 +142,39 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) 
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
 
 
+def _ensure_businesses_allow_multiple(conn: sqlite3.Connection) -> None:
+    """Versões antigas do schema tinham UNIQUE(user_id) em businesses,
+    limitando a um negócio por utilizador. Remove a restrição recriando a
+    tabela e preservando os dados existentes — não perde negócios já
+    registados."""
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='businesses'"
+    ).fetchone()
+    if row is None or "user_id TEXT NOT NULL UNIQUE" not in (row["sql"] or ""):
+        return
+    conn.execute("ALTER TABLE businesses RENAME TO businesses_old")
+    conn.executescript(SCHEMA)
+    old_cols = {r["name"] for r in conn.execute("PRAGMA table_info(businesses_old)")}
+    new_cols = {r["name"] for r in conn.execute("PRAGMA table_info(businesses)")}
+    common = ", ".join(old_cols & new_cols)
+    conn.execute(f"INSERT INTO businesses ({common}) SELECT {common} FROM businesses_old")
+    conn.execute("DROP TABLE businesses_old")
+
+
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        _ensure_businesses_allow_multiple(conn)
         _ensure_column(conn, "users", "terms_accepted_at", "terms_accepted_at TEXT")
         _ensure_column(conn, "users", "is_admin", "is_admin INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "users", "profile_photo_key", "profile_photo_key TEXT")
+        _ensure_column(conn, "users", "profile_photo_url", "profile_photo_url TEXT")
+        _ensure_column(conn, "users", "cover_photo_key", "cover_photo_key TEXT")
+        _ensure_column(conn, "users", "cover_photo_url", "cover_photo_url TEXT")
+        _ensure_column(conn, "businesses", "profile_photo_key", "profile_photo_key TEXT")
+        _ensure_column(conn, "businesses", "profile_photo_url", "profile_photo_url TEXT")
+        _ensure_column(conn, "businesses", "cover_photo_key", "cover_photo_key TEXT")
+        _ensure_column(conn, "businesses", "cover_photo_url", "cover_photo_url TEXT")
         _ensure_column(
             conn, "posts", "moderation_status", "moderation_status TEXT NOT NULL DEFAULT 'approved'"
         )
@@ -198,16 +234,35 @@ def update_business(business_id: str, data: BusinessInput) -> None:
         )
 
 
-def get_business_by_user(user_id: str) -> sqlite3.Row | None:
+def list_businesses_by_user(user_id: str) -> list[sqlite3.Row]:
     with get_conn() as conn:
-        cur = conn.execute("SELECT * FROM businesses WHERE user_id = ?", (user_id,))
-        return cur.fetchone()
+        cur = conn.execute(
+            "SELECT * FROM businesses WHERE user_id = ? ORDER BY created_at ASC", (user_id,)
+        )
+        return cur.fetchall()
 
 
 def get_business(business_id: str) -> sqlite3.Row | None:
     with get_conn() as conn:
         cur = conn.execute("SELECT * FROM businesses WHERE business_id = ?", (business_id,))
         return cur.fetchone()
+
+
+def set_user_photo(user_id: str, kind: str, key: str, url: str) -> None:
+    col_key, col_url = f"{kind}_photo_key", f"{kind}_photo_url"
+    with get_conn() as conn:
+        conn.execute(
+            f"UPDATE users SET {col_key} = ?, {col_url} = ? WHERE user_id = ?", (key, url, user_id)
+        )
+
+
+def set_business_photo(business_id: str, kind: str, key: str, url: str) -> None:
+    col_key, col_url = f"{kind}_photo_key", f"{kind}_photo_url"
+    with get_conn() as conn:
+        conn.execute(
+            f"UPDATE businesses SET {col_key} = ?, {col_url} = ? WHERE business_id = ?",
+            (key, url, business_id),
+        )
 
 
 # --- posts -------------------------------------------------------------------
