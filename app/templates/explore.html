@@ -70,7 +70,7 @@
       <h3 class="product-card-title">{{ row['theme'] }}</h3>
       
       {% if row['price_mt'] %}
-        <div class="product-price-tag">{{ row['price_mt'] | preco_mt }}</div>
+        <div class="product-price-tag">{{ row['price_mt'] | format_price(row['currency']) }}</div>
       {% endif %}
       
       <div class="mediation-info">

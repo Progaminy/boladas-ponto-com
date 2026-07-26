@@ -50,7 +50,10 @@ def create_form(request: Request):
 
     businesses = db.list_businesses_by_user(user["user_id"])
     return templates.TemplateResponse(
-        request, "create.html", {"categories": list_categories(), "businesses": businesses}
+        request, "create.html", {
+            "categories": list_categories(),
+            "businesses": businesses,
+        }
     )
 
 
@@ -119,8 +122,10 @@ def create_post(
     language: str = Form("pt"),
     call_to_action: str | None = Form(None),
     price_mt: float | None = Form(None),
+    currency: str = Form("MZN"),
     location: str | None = Form(None),
     contact: str = Form(...),
+    phone_prefix: str | None = Form(None),
     color_reference: str | None = Form(None),
     description: str | None = Form(None),
     description_source: str | None = Form(None),
@@ -166,6 +171,9 @@ def create_post(
     final_tone = (tone or "").strip() or "casual e direto"
     final_call_to_action = (call_to_action or "").strip() or "Contacta-me já!"
 
+    from app.currencies import format_contact
+    final_contact = format_contact(phone_prefix, contact)
+
     try:
         post_input = PostInput(
             theme=final_theme,
@@ -179,8 +187,10 @@ def create_post(
             language=language,
             call_to_action=final_call_to_action,
             price_mt=price_mt,
+            currency=currency or "MZN",
             location=location or None,
-            contact=contact,
+            contact=final_contact,
+            phone_prefix=phone_prefix,
             color_reference=color_reference or None,
             description=(description or "").strip() or None,
             # se veio texto mas sem origem declarada, foi escrito à mão
@@ -257,6 +267,7 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
                 business_name=post_input.brand_name or post_input.business,
                 price_mt=post_input.price_mt,
                 call_to_action=caption_result.call_to_action,
+                currency=getattr(post_input, "currency", "MZN") or "MZN",
             )
             image_file = upload_and_verify(
                 post_key(post_id, "image.png"), final_image_bytes, "image/png"

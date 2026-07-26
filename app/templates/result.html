@@ -48,7 +48,7 @@
       <p class="hashtags">
         {% for h in (post['hashtags'] | from_json) %}#{{ h }} {% endfor %}
       </p>
-      {% if post['price_mt'] %}<div class="product-price-tag" style="font-size:1.5rem; margin:0.5rem 0;">{{ post['price_mt'] | preco_mt }}</div>{% endif %}
+      {% if post['price_mt'] %}<div class="product-price-tag" style="font-size:1.5rem; margin:0.5rem 0;">{{ post['price_mt'] | format_price(post['currency']) }}</div>{% endif %}
       <div class="mediation-info" style="font-size:0.95rem; margin:0.8rem 0; padding:0.6rem 1rem;">
         🛡️ Mediação da Plataforma: <strong>872599084</strong> &middot; ID do Produto: <code>#{{ post_id[:8] }}</code>
       </div>

@@ -33,6 +33,7 @@ def register_business_submit(
     category_custom: str | None = Form(None),
     location: str | None = Form(None),
     business_contact: str = Form(...),
+    phone_prefix: str | None = Form(None),
     description: str | None = Form(None),
     responsible_name: str = Form(...),
     email: str = Form(...),
@@ -52,6 +53,9 @@ def register_business_submit(
     if terms_accepted != "on":
         return erro("Tens de ler e concordar com os Termos de Uso para criar conta.")
 
+    from app.currencies import format_contact
+    final_business_contact = format_contact(phone_prefix, business_contact)
+
     try:
         conta = UserCreate(email=email, password=password, display_name=responsible_name)
         negocio = BusinessInput(
@@ -59,7 +63,8 @@ def register_business_submit(
             category=(category_custom or "").strip() or category,
             description=description or None,
             location=location or None,
-            contact=business_contact,
+            contact=final_business_contact,
+            phone_prefix=phone_prefix,
         )
     except ValidationError as exc:
         return erro(exc.errors()[0]["msg"])

@@ -223,6 +223,7 @@ def init_db() -> None:
         _ensure_column(conn, "posts", "image_skipped_reason", "image_skipped_reason TEXT")
         _ensure_column(conn, "posts", "latitude", "latitude REAL")
         _ensure_column(conn, "posts", "longitude", "longitude REAL")
+        _ensure_column(conn, "posts", "currency", "currency TEXT NOT NULL DEFAULT 'MZN'")
         _backfill_business_owners(conn)
         seed_demo_stores_if_needed(conn)
 
@@ -408,15 +409,15 @@ def create_post(post_id: str, user_id: str, business_id: str | None, data: PostI
                 post_id, user_id, business_id, status, created_at, updated_at, error,
                 theme, business, category, publisher_type, brand_name,
                 target_audience, objective, tone, language, call_to_action_input,
-                price_mt, location, contact, color_reference,
+                price_mt, currency, location, contact, color_reference,
                 description, description_source
-            ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 post_id, user_id, business_id, PostStatus.PENDING.value, now, now,
                 data.theme, data.business, data.category, data.publisher_type.value,
                 data.brand_name, data.target_audience, data.objective, data.tone,
-                data.language, data.call_to_action, data.price_mt, data.location,
+                data.language, data.call_to_action, data.price_mt, getattr(data, "currency", "MZN") or "MZN", data.location,
                 data.contact, data.color_reference,
                 data.description, data.description_source,
             ),

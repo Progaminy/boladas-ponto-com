@@ -10,6 +10,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from app.categories import Category
+from app.currencies import format_price
 from app.formatting import format_price_mt
 
 _FONTS_DIR = Path(__file__).resolve().parent / "static" / "fonts"
@@ -49,10 +50,6 @@ def _fit_font(
     return _load_font(font_path, min_size)
 
 
-def _format_price(price_mt: float) -> str:
-    return format_price_mt(price_mt)
-
-
 def add_business_overlay(
     image_bytes: bytes,
     *,
@@ -60,6 +57,7 @@ def add_business_overlay(
     business_name: str,
     price_mt: float | None,
     call_to_action: str,
+    currency: str = "MZN",
 ) -> bytes:
     """Devolve novos bytes PNG com uma faixa inferior (na cor da categoria)
     contendo nome do negócio, preço (se houver) e chamada para ação."""
@@ -88,7 +86,7 @@ def add_business_overlay(
 
     cta_text = call_to_action.strip()[:_MAX_CTA_LEN]
     if price_mt:
-        cta_text = f"{_format_price(price_mt)}  •  {cta_text}"
+        cta_text = f"{format_price(price_mt, currency or 'MZN')}  •  {cta_text}"
     cta_font = _fit_font(
         draw, cta_text, _REGULAR_FONT_PATH, max_text_width,
         start_size=max(18, int(width * 0.038)), min_size=13,

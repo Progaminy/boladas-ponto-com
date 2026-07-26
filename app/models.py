@@ -28,8 +28,10 @@ class PostInput(BaseModel):
     language: str = Field(default="pt", min_length=2, max_length=10)
     call_to_action: str = Field(..., min_length=2, max_length=120)
     price_mt: float | None = Field(default=None, ge=0)
+    currency: str = Field(default="MZN", max_length=10)
     location: str | None = Field(default=None, max_length=160)
-    contact: str = Field(..., min_length=6, max_length=60)
+    contact: str = Field(..., min_length=4, max_length=60)
+    phone_prefix: str | None = Field(default=None, max_length=10)
     color_reference: str | None = Field(default=None, max_length=60)
     # Descrição do produto: escrita à mão, gerada pela IA a partir de uma
     # explicação, ou gerada a partir de uma fotografia real.
@@ -68,7 +70,8 @@ class BusinessInput(BaseModel):
     category: str
     description: str | None = Field(default=None, max_length=300)
     location: str | None = Field(default=None, max_length=160)
-    contact: str = Field(..., min_length=6, max_length=60)
+    contact: str = Field(..., min_length=4, max_length=60)
+    phone_prefix: str | None = Field(default=None, max_length=10)
 
 
 class PostRecord(BaseModel):

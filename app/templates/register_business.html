@@ -42,7 +42,14 @@
       </div>
       <div class="field">
         <label for="business_contact">Contacto da empresa *</label>
-        <input type="text" id="business_contact" name="business_contact" required maxlength="60" />
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <select id="phone_prefix" name="phone_prefix" style="width: 190px; background: #111827; border: 1px solid #374151; color: #F9FAFB;">
+            {% for p in phone_prefixes %}
+            <option value="{{ p.code }}" {% if p.code == '+258' %}selected{% endif %}>{{ p.flag }} {{ p.country }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" id="business_contact" name="business_contact" required maxlength="60" placeholder="84 123 4567" style="flex: 1; min-width: 180px;" />
+        </div>
       </div>
     </div>
   </fieldset>
