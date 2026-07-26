@@ -19,6 +19,7 @@ def build_provenance(
     image_file: UploadedFile | None,
     caption_file: UploadedFile,
     image_skipped_reason: str | None = None,
+    caption_skipped_reason: str | None = None,
     errors: list[str] | None = None,
 ) -> dict:
     return {
@@ -41,24 +42,16 @@ def build_provenance(
             "location": post_input.location,
             "contact": post_input.contact,
             "description": post_input.description,
-            # como a descrição foi obtida: escrita pela pessoa, gerada pela IA
-            # a partir de uma explicação, ou gerada a partir de uma fotografia.
             "description_source": post_input.description_source,
         },
         "generation": {
-            # Só há prompt de imagem se houve imagem. Registar um prompt para
-            # uma geração que não aconteceu daria a entender que aconteceu.
             "prompt": image_result.prompt if image_result else None,
             "models": _models_usados(image_result, caption_result),
             "parameters": image_result.params if image_result else {},
             "image_generated": image_result is not None,
             "image_skipped_reason": image_skipped_reason,
-            # genblaze_used reflete o que realmente correu: o Pipeline do
-            # Genblaze só é exercitado na etapa de imagem.
+            "caption_skipped_reason": caption_skipped_reason,
             "genblaze_used": image_result is not None,
-            # Estrutura ampliada (permitido pela especificação): dados reais do
-            # manifesto nativo do Genblaze para a etapa de imagem, para que a
-            # geração seja verificável além da nossa própria reformatação.
             "genblaze_manifest": image_result.genblaze_manifest if image_result else None,
         },
         "files": _ficheiros(image_file, caption_file),

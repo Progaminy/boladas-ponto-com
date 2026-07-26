@@ -17,7 +17,7 @@ from app.image_compose import add_business_overlay
 from app.media_validate import MediaValidationError, validate_photo
 from app.models import PostInput, PostStatus, PublisherType
 from app.moderation import check_text_blocklist, check_text_with_ai
-from app.pipeline import GenerationError, generate_caption, generate_image
+from app.pipeline import GenerationError, build_fallback_caption, generate_caption, generate_image
 from app.provenance import build_caption_txt, build_provenance
 from app.storage import StorageError, post_key, upload_and_verify
 from app.templating import templates
@@ -28,11 +28,17 @@ THUMBNAIL_SIZE = 320
 
 
 @router.get("/", response_class=HTMLResponse)
-def root(request: Request):
-    if get_current_user(request) is not None:
-        return RedirectResponse("/explorar", status_code=303)
+def root(request: Request, categoria: str | None = None, local: str | None = None):
+    rows = db.list_public_posts(category=categoria or None, location_query=local or None)
+    posts = [{"row": row, "category": get_category(row["category"])} for row in rows]
     return templates.TemplateResponse(
-        request, "landing.html", {"categories": list_categories()[:8]}
+        request, "explore.html",
+        {
+            "posts": posts,
+            "categories": list_categories(),
+            "selected_category": categoria or "",
+            "location_query": local or "",
+        },
     )
 
 
@@ -104,7 +110,7 @@ def create_post(
     request: Request,
     theme: str | None = Form(None),
     business: str = Form(...),
-    category: str = Form(...),
+    category: str | None = Form(None),
     category_custom: str | None = Form(None),
     publish_as: str = Form("individual"),
     target_audience: str | None = Form(None),
@@ -144,8 +150,12 @@ def create_post(
             return JSONResponse({"error": "Empresa inválida."}, status_code=422)
         selected_business_id = publish_as
         brand_name = candidate["name"]
-
-    final_category = (category_custom or "").strip() or category
+    if (category_custom or "").strip():
+        final_category = category_custom.strip()
+    elif publish_as != "individual":
+        final_category = (category or "").strip() or "outro"
+    else:
+        final_category = "venda_informal"
 
     # Modo simples (publicação individual/eventual): campos avançados ficam
     # colapsados no formulário com valores pré-preenchidos; isto garante os
@@ -221,19 +231,13 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
 
     db.update_status(post_id, PostStatus.GENERATING)
 
-    # A legenda é obrigatória: sem texto não há post. A imagem gerada por IA
-    # é um extra — um anúncio com descrição, preço e fotos reais do produto
-    # continua a ser um anúncio válido. Por isso a falha na imagem não deita
-    # o post abaixo; fica registada e visível.
+    caption_result = None
+    caption_skipped_reason = None
     try:
         caption_result = generate_caption(post_input, category)
-    except GenerationError as exc:
-        db.update_status(post_id, PostStatus.FAILED, error=str(exc))
-        return {"post_id": post_id, "status": PostStatus.FAILED.value, "error": str(exc)}
-    except Exception as exc:  # nunca deixar um post preso em "generating"
-        error = f"Falha inesperada na geração do texto ({type(exc).__name__}): {exc}"
-        db.update_status(post_id, PostStatus.FAILED, error=error)
-        return {"post_id": post_id, "status": PostStatus.FAILED.value, "error": error}
+    except Exception as exc:
+        caption_skipped_reason = str(exc)
+        caption_result = build_fallback_caption(post_input, category)
 
     image_result = None
     image_skipped_reason = None
@@ -280,6 +284,7 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
             image_file=image_file,
             caption_file=caption_file,
             image_skipped_reason=image_skipped_reason,
+            caption_skipped_reason=caption_skipped_reason,
         )
         provenance_file = upload_and_verify(
             post_key(post_id, "provenance.json"),
@@ -325,8 +330,6 @@ def _make_thumbnail(png_bytes: bytes) -> bytes:
 
 @router.get("/posts/{post_id}", response_class=HTMLResponse)
 def result_page(request: Request, post_id: str):
-    # Público de propósito: um post tem de poder ser partilhado (WhatsApp,
-    # redes sociais) e a sua proveniência verificada sem exigir conta.
     row = db.get_post(post_id)
     if row is None:
         return templates.TemplateResponse(
@@ -346,7 +349,112 @@ def result_page(request: Request, post_id: str):
 
     category = get_category(row["category"])
     media = db.list_product_media(post_id)
+    reactions = db.get_post_reactions(post_id, user["user_id"] if user else None)
+    comments = db.get_post_comments(post_id)
+
     return templates.TemplateResponse(
         request, "result.html",
-        {"post": row, "post_id": post_id, "category": category, "media": media},
+        {
+            "post": row,
+            "post_id": post_id,
+            "category": category,
+            "media": media,
+            "reactions": reactions,
+            "comments": comments,
+            "is_owner": is_owner,
+            "current_user": user,
+        },
     )
+
+
+@router.post("/posts/{post_id}/react")
+def react_to_post(
+    request: Request,
+    post_id: str,
+    type: str | None = Form(None),
+    reaction_type: str | None = Form(None),
+    reason: str | None = Form(None),
+):
+    user = get_current_user(request)
+    if user is None:
+        referer = request.headers.get("referer")
+        if referer:
+            return RedirectResponse("/entrar", status_code=303)
+        return JSONResponse({"error": "Autenticação necessária."}, status_code=401)
+
+    final_type = (type or reaction_type or "").strip().lower()
+    if not final_type:
+        final_type = "like"
+
+    try:
+        res = db.add_post_reaction(post_id, user["user_id"], final_type, reason)
+        referer = request.headers.get("referer")
+        if referer:
+            return RedirectResponse(referer, status_code=303)
+        return JSONResponse(res)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+
+
+@router.post("/posts/{post_id}/comments")
+def add_comment(
+    request: Request,
+    post_id: str,
+    body: str = Form(...),
+):
+    user = get_current_user(request)
+    if user is None:
+        referer = request.headers.get("referer")
+        if referer:
+            return RedirectResponse("/entrar", status_code=303)
+        return JSONResponse({"error": "Autenticação necessária."}, status_code=401)
+
+    try:
+        comment = db.add_post_comment(post_id, user["user_id"], body)
+        referer = request.headers.get("referer")
+        if referer:
+            return RedirectResponse(referer, status_code=303)
+        return JSONResponse({"success": True, "comment": comment})
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+
+
+@router.post("/posts/{post_id}/editar")
+def edit_post(
+    request: Request,
+    post_id: str,
+    theme: str = Form(...),
+    price_mt: float | None = Form(None),
+    contact: str = Form(...),
+    location: str | None = Form(None),
+    description: str | None = Form(None),
+):
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
+    try:
+        db.update_post_details(
+            post_id, user["user_id"], theme, price_mt, contact, location, description
+        )
+        return RedirectResponse(f"/posts/{post_id}", status_code=303)
+    except PermissionError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=403)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=404)
+
+
+@router.post("/posts/{post_id}/eliminar")
+def delete_post_endpoint(request: Request, post_id: str):
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
+    try:
+        db.delete_post(post_id, user["user_id"])
+        return RedirectResponse("/historico", status_code=303)
+    except PermissionError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=403)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=404)
+

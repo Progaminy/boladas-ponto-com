@@ -21,18 +21,18 @@ def test_hash_password_roundtrip():
     assert not auth.verify_password("errada", hashed)
 
 
-def test_register_logs_in_and_redirects_to_criar(client):
+def test_register_logs_in_and_redirects_to_explorar(client):
     resp = client.post(
         "/registar",
         data={"email": "ana@exemplo.co.mz", "password": "password123", "display_name": "Ana", "terms_accepted": "on"},
         follow_redirects=False,
     )
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/criar"
+    assert resp.headers["location"] == "/explorar"
 
-    follow = client.get("/criar")
+    follow = client.get("/explorar")
     assert follow.status_code == 200
-    assert "Criar post" in follow.text
+    assert "Feed" in follow.text
 
 
 def test_register_without_accepting_terms_rejected(client):
@@ -74,10 +74,15 @@ def test_login_wrong_password_rejected(client):
 
 
 def test_protected_routes_redirect_when_logged_out(client):
-    for path in ["/criar", "/historico", "/empresa", "/explorar"]:
+    for path in ["/criar", "/historico", "/empresa"]:
         resp = client.get(path, follow_redirects=False)
         assert resp.status_code == 303, path
         assert resp.headers["location"] == "/entrar", path
+
+
+def test_explorar_public_without_session(client):
+    resp = client.get("/explorar", follow_redirects=False)
+    assert resp.status_code == 200
 
 
 def test_create_post_without_session_returns_401(client):
@@ -108,7 +113,7 @@ def test_post_result_and_provenance_public_without_session(client):
     assert resp.status_code == 404
 
 
-def test_explorar_requires_session(client):
+def test_explorar_accessible_for_logged_in_user(client):
     resp = client.post(
         "/registar",
         data={"email": "exp@exemplo.co.mz", "password": "password123", "display_name": "Exp", "terms_accepted": "on"},
@@ -123,16 +128,4 @@ def test_explorar_requires_session(client):
 def test_landing_page_shown_when_logged_out(client):
     resp = client.get("/", follow_redirects=False)
     assert resp.status_code == 200
-    assert "Crie posts" in resp.text
-    assert "Nunca fingir" in resp.text
-
-
-def test_root_redirects_to_explorar_when_logged_in(client):
-    client.post(
-        "/registar",
-        data={"email": "raiz@exemplo.co.mz", "password": "password123", "display_name": "Raiz", "terms_accepted": "on"},
-        follow_redirects=False,
-    )
-    resp = client.get("/", follow_redirects=False)
-    assert resp.status_code == 303
-    assert resp.headers["location"] == "/explorar"
+    assert "Feed" in resp.text

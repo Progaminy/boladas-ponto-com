@@ -7,11 +7,37 @@
 {% else %}
   <p><a href="/mensagens">← Mensagens</a></p>
   {% if is_platform %}
-    <h1>Contactar a plataforma Boladas</h1>
-    <p class="subtitle">Para dúvidas, disputas ou pedidos de mediação numa compra/venda. Podes também ligar para <strong>{{ platform_contact }}</strong>.</p>
+    <h1>Contactar a plataforma Boladas (Assistência Humana)</h1>
+    <p class="subtitle">Canal direto com a equipa da plataforma para ajuda, disputas e assistência humana. Contacto telefónico: <strong>872599084</strong>.</p>
   {% else %}
-    <h1>{{ other_user['display_name'] }}</h1>
-    <p class="subtitle">Sobre: <a href="/posts/{{ post['post_id'] }}">{{ post['theme'] }}</a></p>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
+      <div>
+        <h1 style="margin:0;">Conversa com {{ other_user['display_name'] }}</h1>
+        <p class="subtitle" style="margin:0.2rem 0 0;">Messenger Boladas-ponto-com</p>
+      </div>
+      <a href="/mensagens/plataforma" class="btn-secondary" style="font-size:0.85rem; padding:0.5rem 0.9rem; text-decoration:none; background:#374151; color:#F9FAFB;">🆘 Pedir Assistência Humana da Plataforma</a>
+    </div>
+
+    <!-- FICHA DE CONTEXTO DO PRODUTO NO MESSENGER -->
+    {% if post %}
+    <div class="card" style="background:#111827; border:1px solid #374151; padding:1rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:1.2rem; flex-wrap:wrap;">
+      {% if post['image_url'] %}
+        <img src="{{ post['image_url'] }}" alt="{{ post['theme'] }}" style="width:70px; height:70px; border-radius:10px; object-fit:cover;" />
+      {% else %}
+        <div style="width:70px; height:70px; border-radius:10px; background:#1F2937; display:flex; align-items:center; justify-content:center; font-size:1.8rem; color:#9CA3AF;">📦</div>
+      {% endif %}
+      <div style="flex:1;">
+        <h3 style="margin:0; font-size:1.1rem; color:#F9FAFB;">{{ post['theme'] }}</h3>
+        <p class="muted" style="margin:0.2rem 0; font-size:0.85rem;">ID do Produto: <code>#{{ post['post_id'][:8] }}</code> &middot; 🛡️ Mediação: <strong>872599084</strong></p>
+        {% if post['price_mt'] %}
+          <div style="color:#10B981; font-weight:800; font-size:1.15rem; margin-top:0.2rem;">{{ post['price_mt'] | preco_mt }}</div>
+        {% endif %}
+      </div>
+      <div>
+        <a href="/posts/{{ post['post_id'] }}" class="btn-secondary" style="font-size:0.85rem; padding:0.5rem 0.8rem; text-decoration:none;">👁️ Ver Anúncio</a>
+      </div>
+    </div>
+    {% endif %}
   {% endif %}
 
   <div class="card">

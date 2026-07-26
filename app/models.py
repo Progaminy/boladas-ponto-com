@@ -19,7 +19,7 @@ class PublisherType(str, Enum):
 class PostInput(BaseModel):
     theme: str = Field(..., min_length=3, max_length=200)
     business: str = Field(..., min_length=2, max_length=120)
-    category: str
+    category: str = Field(default="venda_informal")
     publisher_type: PublisherType = PublisherType.INDIVIDUAL
     brand_name: str | None = Field(default=None, max_length=120)
     target_audience: str = Field(..., min_length=2, max_length=200)

@@ -1,5 +1,7 @@
 import json
+import math
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -134,6 +136,24 @@ CREATE TABLE IF NOT EXISTS posts (
     image_url TEXT,
     moderation_status TEXT NOT NULL DEFAULT 'approved'
 );
+
+CREATE TABLE IF NOT EXISTS post_reactions (
+    reaction_id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL REFERENCES posts(post_id),
+    user_id TEXT NOT NULL REFERENCES users(user_id),
+    type TEXT NOT NULL, -- 'like' ou 'dislike'
+    reason TEXT, -- obrigatório quando type = 'dislike'
+    created_at TEXT NOT NULL,
+    UNIQUE(post_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS post_comments (
+    comment_id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL REFERENCES posts(post_id),
+    user_id TEXT NOT NULL REFERENCES users(user_id),
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -186,17 +206,25 @@ def init_db() -> None:
         _ensure_column(conn, "users", "profile_photo_url", "profile_photo_url TEXT")
         _ensure_column(conn, "users", "cover_photo_key", "cover_photo_key TEXT")
         _ensure_column(conn, "users", "cover_photo_url", "cover_photo_url TEXT")
+        _ensure_column(conn, "users", "seasonal_theme", "seasonal_theme TEXT DEFAULT 'padrao'")
         _ensure_column(conn, "businesses", "profile_photo_key", "profile_photo_key TEXT")
         _ensure_column(conn, "businesses", "profile_photo_url", "profile_photo_url TEXT")
         _ensure_column(conn, "businesses", "cover_photo_key", "cover_photo_key TEXT")
         _ensure_column(conn, "businesses", "cover_photo_url", "cover_photo_url TEXT")
+        _ensure_column(conn, "businesses", "seasonal_theme", "seasonal_theme TEXT DEFAULT 'padrao'")
+        _ensure_column(conn, "businesses", "latitude", "latitude REAL")
+        _ensure_column(conn, "businesses", "longitude", "longitude REAL")
+        _ensure_column(conn, "businesses", "description", "description TEXT")
         _ensure_column(
             conn, "posts", "moderation_status", "moderation_status TEXT NOT NULL DEFAULT 'approved'"
         )
         _ensure_column(conn, "posts", "description", "description TEXT")
         _ensure_column(conn, "posts", "description_source", "description_source TEXT")
         _ensure_column(conn, "posts", "image_skipped_reason", "image_skipped_reason TEXT")
+        _ensure_column(conn, "posts", "latitude", "latitude REAL")
+        _ensure_column(conn, "posts", "longitude", "longitude REAL")
         _backfill_business_owners(conn)
+        seed_demo_stores_if_needed(conn)
 
 
 def _backfill_business_owners(conn: sqlite3.Connection) -> None:
@@ -647,16 +675,524 @@ def list_public_individual_posts_by_user(user_id: str, limit: int = 50) -> list[
 def list_public_posts(
     category: str | None = None, location_query: str | None = None, limit: int = 100
 ) -> list[sqlite3.Row]:
-    query = "SELECT * FROM posts WHERE status = 'completed' AND moderation_status = 'approved'"
+    query = """
+    SELECT p.*,
+           COALESCE(b.profile_photo_url, u.profile_photo_url) AS seller_photo_url
+    FROM posts p
+    LEFT JOIN users u ON p.user_id = u.user_id
+    LEFT JOIN businesses b ON p.business_id = b.business_id
+    WHERE p.status = 'completed' AND p.moderation_status = 'approved'
+    """
     params: list = []
     if category:
-        query += " AND category = ?"
+        query += " AND p.category = ?"
         params.append(category)
     if location_query:
-        query += " AND location LIKE ?"
+        query += " AND p.location LIKE ?"
         params.append(f"%{location_query}%")
-    query += " ORDER BY created_at DESC LIMIT ?"
+    query += " ORDER BY p.created_at DESC LIMIT ?"
     params.append(limit)
     with get_conn() as conn:
         cur = conn.execute(query, params)
         return cur.fetchall()
+
+
+# --- Reações (Likes / Dislikes) & Comentários ------------------------------
+
+def add_post_reaction(post_id: str, user_id: str, reaction_type: str, reason: str | None = None) -> dict:
+    reaction_type = reaction_type.lower().strip()
+    if reaction_type not in ("like", "dislike"):
+        raise ValueError("Tipo de reação inválido. Usa 'like' ou 'dislike'.")
+    if reaction_type == "dislike" and (not reason or not reason.strip()):
+        raise ValueError("O dislike exige uma justificativa/motivo obrigatório.")
+
+    now = _now()
+    reaction_id = str(uuid.uuid4())
+    reason_clean = reason.strip() if reason else None
+
+    with get_conn() as conn:
+        # Se já existia reação deste utilizador, substitui ou insere
+        conn.execute(
+            """
+            INSERT INTO post_reactions (reaction_id, post_id, user_id, type, reason, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(post_id, user_id) DO UPDATE SET
+                type = excluded.type,
+                reason = excluded.reason,
+                created_at = excluded.created_at
+            """,
+            (reaction_id, post_id, user_id, reaction_type, reason_clean, now),
+        )
+
+        # Se for um dislike, encaminha AUTOMATICAMENTE um alerta para a equipa da plataforma (reports)
+        if reaction_type == "dislike" and reason_clean:
+            report_id = str(uuid.uuid4())
+            report_reason = f"[FEEDBACK DISLIKE AUTOMÁTICO] Post {post_id} recebeu dislike de {user_id}: {reason_clean}"
+            conn.execute(
+                """
+                INSERT INTO reports (report_id, post_id, reporter_id, reason, source, created_at)
+                VALUES (?, ?, ?, ?, 'dislike_feedback', ?)
+                """,
+                (report_id, post_id, user_id, report_reason, now),
+            )
+
+    return get_post_reactions(post_id, user_id)
+
+
+def get_post_reactions(post_id: str, user_id: str | None = None) -> dict:
+    with get_conn() as conn:
+        likes = conn.execute(
+            "SELECT COUNT(*) FROM post_reactions WHERE post_id = ? AND type = 'like'", (post_id,)
+        ).fetchone()[0]
+        dislikes = conn.execute(
+            "SELECT COUNT(*) FROM post_reactions WHERE post_id = ? AND type = 'dislike'", (post_id,)
+        ).fetchone()[0]
+
+        user_reaction = None
+        if user_id:
+            row = conn.execute(
+                "SELECT type FROM post_reactions WHERE post_id = ? AND user_id = ?",
+                (post_id, user_id),
+            ).fetchone()
+            if row:
+                user_reaction = row["type"]
+
+        return {"likes": likes, "dislikes": dislikes, "user_reaction": user_reaction}
+
+
+def add_post_comment(post_id: str, user_id: str, body: str) -> dict:
+    body_clean = body.strip()
+    if not body_clean:
+        raise ValueError("O comentário não pode estar vazio.")
+    comment_id = str(uuid.uuid4())
+    now = _now()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO post_comments (comment_id, post_id, user_id, body, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (comment_id, post_id, user_id, body_clean, now),
+        )
+    return {"comment_id": comment_id, "post_id": post_id, "user_id": user_id, "body": body_clean, "created_at": now}
+
+
+def get_post_comments(post_id: str) -> list[dict]:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT c.comment_id, c.post_id, c.user_id, c.body, c.created_at, u.display_name, u.profile_photo_url
+            FROM post_comments c
+            JOIN users u ON c.user_id = u.user_id
+            WHERE c.post_id = ?
+            ORDER BY c.created_at ASC
+            """,
+            (post_id,),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+# --- Autonomia Total (Edição e Remoção de Posts) ----------------------------
+
+def update_post_details(
+    post_id: str, user_id: str, theme: str, price_mt: float | None, contact: str, location: str | None, description: str | None
+) -> None:
+    post = get_post(post_id)
+    if not post:
+        raise ValueError("Post não encontrado.")
+    if post["user_id"] != user_id:
+        raise PermissionError("Apenas o proprietário pode editar este post.")
+
+    with get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE posts SET
+                theme = ?,
+                price_mt = ?,
+                contact = ?,
+                location = ?,
+                description = ?,
+                updated_at = ?
+            WHERE post_id = ?
+            """,
+            (theme, price_mt, contact, location, description, _now(), post_id),
+        )
+
+
+def delete_post(post_id: str, user_id: str) -> None:
+    post = get_post(post_id)
+    if not post:
+        raise ValueError("Post não encontrado.")
+
+    # Se for um post de empresa, gestores da empresa também podem apagar
+    can_delete = post["user_id"] == user_id
+    if not can_delete and post["business_id"]:
+        membership = get_business_member(post["business_id"], user_id)
+        if membership:
+            can_delete = True
+
+    if not can_delete:
+        raise PermissionError("Sem permissão para eliminar este post.")
+
+    with get_conn() as conn:
+        conn.execute("DELETE FROM product_media WHERE post_id = ?", (post_id,))
+        conn.execute("DELETE FROM messages WHERE post_id = ?", (post_id,))
+        conn.execute("DELETE FROM post_reactions WHERE post_id = ?", (post_id,))
+        conn.execute("DELETE FROM post_comments WHERE post_id = ?", (post_id,))
+        conn.execute("DELETE FROM reports WHERE post_id = ?", (post_id,))
+        conn.execute("DELETE FROM transactions WHERE post_id = ?", (post_id,))
+        conn.execute("DELETE FROM posts WHERE post_id = ?", (post_id,))
+
+
+# --- Temas Festivos (Utilizador & Empresa) ---------------------------------
+
+def set_user_seasonal_theme(user_id: str, theme: str) -> None:
+    with get_conn() as conn:
+        conn.execute("UPDATE users SET seasonal_theme = ? WHERE user_id = ?", (theme, user_id))
+
+
+def set_business_seasonal_theme(business_id: str, user_id: str, theme: str) -> None:
+    member = get_business_member(business_id, user_id)
+    if not member:
+        raise PermissionError("Apenas gestores/proprietários da empresa podem alterar o tema.")
+    with get_conn() as conn:
+        conn.execute("UPDATE businesses SET seasonal_theme = ? WHERE business_id = ?", (theme, business_id))
+
+
+# --- GPS Proximidade & Comparador de Preços --------------------------------
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371.0  # Raio da Terra em km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return round(R * c, 2)
+
+
+def list_all_businesses(category: str | None = None, search: str | None = None) -> list[dict]:
+    with get_conn() as conn:
+        query = """
+            SELECT b.*,
+                   u.display_name AS owner_name,
+                   (SELECT COUNT(*) FROM posts p WHERE p.business_id = b.business_id AND p.moderation_status = 'approved') AS product_count,
+                   (SELECT COUNT(*) FROM business_members bm WHERE bm.business_id = b.business_id) AS member_count
+            FROM businesses b
+            JOIN users u ON u.user_id = b.user_id
+            WHERE 1=1
+        """
+        params = []
+        if category and category.strip():
+            query += " AND b.category = ?"
+            params.append(category.strip())
+        if search and search.strip():
+            query += " AND (b.name LIKE ? OR b.location LIKE ? OR b.description LIKE ?)"
+            term = f"%{search.strip()}%"
+            params.extend([term, term, term])
+        query += " ORDER BY b.created_at DESC"
+        rows = conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+def compare_prices_and_proximity(
+    search_query: str | None = None,
+    category: str | None = None,
+    user_lat: float | None = None,
+    user_lon: float | None = None,
+    sort_by: str = "price_asc",
+) -> list[dict]:
+    with get_conn() as conn:
+        query = """
+            SELECT p.*,
+                   b.name AS store_name,
+                   b.business_id,
+                   b.category AS store_category,
+                   b.location AS store_location,
+                   b.contact AS store_contact,
+                   COALESCE(b.profile_photo_url, u.profile_photo_url) AS seller_photo_url,
+                   b.latitude AS store_lat,
+                   b.longitude AS store_lon
+            FROM posts p
+            LEFT JOIN businesses b ON b.business_id = p.business_id
+            LEFT JOIN users u ON u.user_id = p.user_id
+            WHERE p.moderation_status = 'approved'
+        """
+        params = []
+        if search_query and search_query.strip():
+            query += " AND (p.theme LIKE ? OR p.description LIKE ? OR p.business LIKE ?)"
+            term = f"%{search_query.strip()}%"
+            params.extend([term, term, term])
+        if category and category.strip():
+            query += " AND p.category = ?"
+            params.append(category.strip())
+
+        rows = [dict(r) for r in conn.execute(query, params).fetchall()]
+
+        for r in rows:
+            r["distance_km"] = None
+            st_lat = r.get("store_lat") or r.get("latitude")
+            st_lon = r.get("store_lon") or r.get("longitude")
+            if user_lat is not None and user_lon is not None and st_lat is not None and st_lon is not None:
+                try:
+                    r["distance_km"] = haversine_distance(float(user_lat), float(user_lon), float(st_lat), float(st_lon))
+                except (ValueError, TypeError):
+                    r["distance_km"] = None
+
+        if sort_by == "distance_asc":
+            rows.sort(key=lambda x: (x["distance_km"] is None, x["distance_km"] or 999999, x.get("price_mt") or 999999))
+        elif sort_by == "price_desc":
+            rows.sort(key=lambda x: (-(x.get("price_mt") or 0)))
+        else:
+            rows.sort(key=lambda x: (x.get("price_mt") is None, x.get("price_mt") or 999999))
+
+        return rows
+
+
+def seed_demo_stores_if_needed(conn: sqlite3.Connection) -> None:
+    from app.auth import hash_password
+
+    now = datetime.now(timezone.utc).isoformat()
+    pass_hash = hash_password("senha12345")
+
+    demo_stores = [
+        {
+            "user_id": "usr_seed_ferragem",
+            "user_email": "carlos.ferragem@boladas.co.mz",
+            "user_name": "Eng. Carlos Ferragem",
+            "biz_id": "biz_seed_ferragem",
+            "biz_name": "Ferragem Lendária Maputo",
+            "category": "ferragem",
+            "nuit": "400123987",
+            "location": "Av. 24 de Julho nº 1420, Maputo",
+            "lat": -25.9692,
+            "lon": 32.5732,
+            "contact": "841234567",
+            "desc": "Especialistas em materiais de construção, cimento, tubagens, pregos e ferramentas para a sua obra em Moçambique.",
+            "cover": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1200",
+            "profile": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=300",
+            "products": [
+                {
+                    "post_id": "post_seed_cimento",
+                    "theme": "Cimento Limpopo 42.5N (50kg)",
+                    "price_mt": 480.0,
+                    "desc": "Cimento Portland de alta resistência para fundações, placas e alvenaria.",
+                    "image": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=800",
+                },
+                {
+                    "post_id": "post_seed_tubo",
+                    "theme": "Tubo PVC Esgoto 110mm (6 Metros)",
+                    "price_mt": 650.0,
+                    "desc": "Tubo de PVC reforçado para canalização de saneamento e águas residuais.",
+                    "image": "https://images.unsplash.com/photo-1542013936693-884638332954?w=800",
+                },
+                {
+                    "post_id": "post_seed_prego",
+                    "theme": "Prego de Construção 3 Polegadas (Caixa 5kg)",
+                    "price_mt": 350.0,
+                    "desc": "Pregos de aço galvanizado para cofragens e marcenaria.",
+                    "image": "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=800",
+                },
+            ],
+        },
+        {
+            "user_id": "usr_seed_farmacia",
+            "user_email": "ana.farmacia@boladas.co.mz",
+            "user_name": "Dra. Ana Saúde",
+            "biz_id": "biz_seed_farmacia",
+            "biz_name": "Farmácia Moçambique Vida",
+            "category": "saude",
+            "nuit": "400987123",
+            "location": "Av. Eduardo Mondlane nº 850, Maputo",
+            "lat": -25.9650,
+            "lon": 32.5800,
+            "contact": "829876543",
+            "desc": "Farmácia comunitária com medicamentos certificados, cuidados infantis, dermatologia e vitaminas de qualidade.",
+            "cover": "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=1200",
+            "profile": "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300",
+            "products": [
+                {
+                    "post_id": "post_seed_paracetamol",
+                    "theme": "Paracetamol 500mg (Caixa 20 Comprimidos)",
+                    "price_mt": 75.0,
+                    "desc": "Alívio eficaz de dores de cabeça, febres e sintomas gripais.",
+                    "image": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800",
+                },
+                {
+                    "post_id": "post_seed_vitamina",
+                    "theme": "Vitamina C Efervescente 1000mg (Tubo 20 Comp)",
+                    "price_mt": 220.0,
+                    "desc": "Suplemento diário para reforço imunitário e vitalidade.",
+                    "image": "https://images.unsplash.com/photo-1577401239170-897942555fb3?w=800",
+                },
+                {
+                    "post_id": "post_seed_termometro",
+                    "theme": "Termómetro Digital Infravermelho sem Contacto",
+                    "price_mt": 850.0,
+                    "desc": "Leitura ultrarrápida da temperatura corporal com visor LCD.",
+                    "image": "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=800",
+                },
+            ],
+        },
+        {
+            "user_id": "usr_seed_boutique",
+            "user_email": "clara.boutique@boladas.co.mz",
+            "user_name": "Clara Moda",
+            "biz_id": "biz_seed_boutique",
+            "biz_name": "Moda & Estilo Boutique",
+            "category": "vestuario",
+            "nuit": "400456789",
+            "location": "Rua da Bagamoyo nº 45, Baixa de Maputo",
+            "lat": -25.9720,
+            "lon": 32.5700,
+            "contact": "873334455",
+            "desc": "Roupas femininas e masculinas de alta qualidade, capulanas de luxo, vestidos de gala e acessórios de moda.",
+            "cover": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200",
+            "profile": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300",
+            "products": [
+                {
+                    "post_id": "post_seed_capulana",
+                    "theme": "Capulana Tradicional de Luxo (6 Jardas)",
+                    "price_mt": 1200.0,
+                    "desc": "Tecido 100% algodão com padrões tradicionais e cores vivas.",
+                    "image": "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=800",
+                },
+                {
+                    "post_id": "post_seed_vestido",
+                    "theme": "Vestido Elegante de Festa Feminino",
+                    "price_mt": 2500.0,
+                    "desc": "Vestido longo de gala para casamentos, recepções e eventos festivos.",
+                    "image": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800",
+                },
+            ],
+        },
+        {
+            "user_id": "usr_seed_mercado",
+            "user_email": "maria.mercado@boladas.co.mz",
+            "user_name": "Tia Maria Mercado",
+            "biz_id": "biz_seed_mercado",
+            "biz_name": "Mercado Popular de Xipamanine",
+            "category": "alimentacao",
+            "nuit": "400654321",
+            "location": "Bairro Xipamanine, Bancada 12, Maputo",
+            "lat": -25.9510,
+            "lon": 32.5610,
+            "contact": "845556677",
+            "desc": "Venda por grosso e retalho de bens alimentares de primeira necessidade: arroz, óleo, feijão e farinha.",
+            "cover": "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=1200",
+            "profile": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300",
+            "products": [
+                {
+                    "post_id": "post_seed_arroz",
+                    "theme": "Saco de Arroz Premium 25kg",
+                    "price_mt": 1350.0,
+                    "desc": "Arroz de grão longo e solto de primeira qualidade.",
+                    "image": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800",
+                },
+                {
+                    "post_id": "post_seed_oleo",
+                    "theme": "Óleo Alimentar Vegetal 5 Litros",
+                    "price_mt": 620.0,
+                    "desc": "Óleo de girassol 100% puro para a sua cozinha.",
+                    "image": "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=800",
+                },
+            ],
+        },
+        {
+            "user_id": "usr_seed_transporte",
+            "user_email": "alberto.transporte@boladas.co.mz",
+            "user_name": "Sr. Alberto Fretes",
+            "biz_id": "biz_seed_transporte",
+            "biz_name": "Transporte & Carga Expresso Moçambique",
+            "category": "servicos",
+            "nuit": "400789123",
+            "location": "Terminal de Zimpeto, Maputo",
+            "lat": -25.8600,
+            "lon": 32.5750,
+            "contact": "827778899",
+            "desc": "Fretes e mudanças residenciais e comerciais para todo o país com viaturas fechadas e equipa de ajudantes.",
+            "cover": "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1200",
+            "profile": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300",
+            "products": [
+                {
+                    "post_id": "post_seed_mudanca",
+                    "theme": "Serviço de Mudança Residencial Canter 5T",
+                    "price_mt": 3500.0,
+                    "desc": "Mudança segura em camião fechado com 2 ajudantes incluídos.",
+                    "image": "https://images.unsplash.com/photo-1580674684081-7617fbf3d745?w=800",
+                },
+                {
+                    "post_id": "post_seed_frete_cimento",
+                    "theme": "Transporte de Materiais de Construção por Viagem",
+                    "price_mt": 2500.0,
+                    "desc": "Entrega rápida de cimento, blocos e areia na obra.",
+                    "image": "https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=800",
+                },
+            ],
+        },
+    ]
+
+    for st in demo_stores:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO users (user_id, email, password_hash, display_name, created_at, terms_accepted_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (st["user_id"], st["user_email"], pass_hash, st["user_name"], now, now),
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO businesses (business_id, user_id, name, category, description, location, latitude, longitude, contact, profile_photo_url, cover_photo_url, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                st["biz_id"],
+                st["user_id"],
+                st["biz_name"],
+                st["category"],
+                st["desc"],
+                st["location"],
+                st["lat"],
+                st["lon"],
+                st["contact"],
+                st["profile"],
+                st["cover"],
+                now,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO business_members (business_id, user_id, role, added_at, added_by)
+            VALUES (?, ?, 'proprietario', ?, ?)
+            """,
+            (st["biz_id"], st["user_id"], now, st["user_id"]),
+        )
+
+        for p in st["products"]:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO posts (
+                    post_id, user_id, business_id, status, created_at, updated_at,
+                    theme, business, category, publisher_type, target_audience, objective,
+                    tone, language, call_to_action_input, price_mt, location, latitude, longitude, contact,
+                    description, image_url, moderation_status
+                )
+                VALUES (?, ?, ?, 'completed', ?, ?, ?, ?, ?, 'business', 'Geral', 'Vender', 'casual', 'pt', 'Contacta-nos!', ?, ?, ?, ?, ?, ?, ?, 'approved')
+                """,
+                (
+                    p["post_id"],
+                    st["user_id"],
+                    st["biz_id"],
+                    now,
+                    now,
+                    p["theme"],
+                    st["biz_name"],
+                    st["category"],
+                    p["price_mt"],
+                    st["location"],
+                    st["lat"],
+                    st["lon"],
+                    st["contact"],
+                    p["desc"],
+                    p["image"],
+                ),
+            )

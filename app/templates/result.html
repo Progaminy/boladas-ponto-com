@@ -48,36 +48,156 @@
       <p class="hashtags">
         {% for h in (post['hashtags'] | from_json) %}#{{ h }} {% endfor %}
       </p>
-      {% if post['price_mt'] %}<p>Preço: {{ post['price_mt'] | preco_mt }}</p>{% endif %}
-      {% if post['location'] %}<p>Localização: {{ post['location'] }}</p>{% endif %}
-      <p>Contacto do negócio: {{ post['contact'] }}</p>
-      <p><a href="/posts/{{ post_id }}/provenance">Ver detalhes da proveniência →</a></p>
+      {% if post['price_mt'] %}<div class="product-price-tag" style="font-size:1.5rem; margin:0.5rem 0;">{{ post['price_mt'] | preco_mt }}</div>{% endif %}
+      <div class="mediation-info" style="font-size:0.95rem; margin:0.8rem 0; padding:0.6rem 1rem;">
+        🛡️ Mediação da Plataforma: <strong>872599084</strong> &middot; ID do Produto: <code>#{{ post_id[:8] }}</code>
+      </div>
+      {% if post['location'] %}<p>📍 Localização: {{ post['location'] }}</p>{% endif %}
+      <p>📞 Contacto do negócio: {{ post['contact'] }}</p>
+
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin:1rem 0;">
+        <form method="post" action="/mensagens/iniciar" style="margin:0;">
+          <input type="hidden" name="post_id" value="{{ post_id }}" />
+          <button type="submit" class="btn-messenger">💬 Falar no Messenger Boladas</button>
+        </form>
+        <a href="/mensagens/plataforma" class="btn-secondary" style="text-decoration:none; padding:0.6rem 1rem; background:#374151; color:#F9FAFB;">🆘 Pedir Assistência Humana (872599084)</a>
+        {% if post['business_id'] %}
+          <a href="/empresa/{{ post['business_id'] }}" class="btn-secondary" style="text-decoration:none; padding:0.6rem 1rem;">🏢 Visitar Loja da Empresa</a>
+        {% endif %}
+        <a href="/posts/{{ post_id }}/provenance" class="btn-secondary" style="text-decoration:none; padding:0.6rem 1rem;">📜 Ver Proveniência B2</a>
+      </div>
 
       {% if media %}
-      <h2>Fotos e vídeo do produto real</h2>
-      <div class="history-grid">
-        {% for m in media %}
-        <div class="card" style="padding: 0.6rem;">
-          {% if m['media_type'] == 'photo' %}
-            <img src="{{ m['url'] }}" alt="foto do produto" />
-          {% else %}
-            <video src="{{ m['url'] }}" controls style="width:100%; border-radius:8px;"></video>
-          {% endif %}
+      <h2>Galeria do produto (slideshow automático)</h2>
+      <div class="carousel-container" id="product-carousel">
+        <div class="carousel-track">
+          {% for m in media %}
+          <div class="carousel-slide {% if loop.first %}active{% endif %}">
+            {% if m['media_type'] == 'photo' %}
+              <img src="{{ m['url'] }}" alt="foto do produto real" />
+            {% else %}
+              <video src="{{ m['url'] }}" controls style="width:100%; max-height:400px; border-radius:8px;"></video>
+            {% endif %}
+          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
+        {% if media|length > 1 %}
+        <div class="carousel-controls">
+          <button type="button" class="carousel-btn prev-btn" onclick="prevSlide()">❮</button>
+          <button type="button" class="carousel-btn next-btn" onclick="nextSlide()">❯</button>
+        </div>
+        <div class="carousel-dots">
+          {% for m in media %}
+          <span class="dot {% if loop.first %}active{% endif %}" onclick="goToSlide({{ loop.index0 }})"></span>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
       {% endif %}
+
       {% if current_user and current_user['user_id'] == post['user_id'] %}
         <p><a href="/posts/{{ post_id }}/media">📷 Gerir fotos/vídeo do produto ({{ media|length }}/5)</a></p>
       {% endif %}
 
+      <!-- Reações (Likes / Dislikes) & Comentários -->
+      <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid #374151;" />
+      <div class="reactions-bar" style="display:flex; align-items:center; gap:1.2rem; margin-bottom:1rem;">
+        <button type="button" id="like-btn" onclick="submitReaction('like')" class="reaction-btn {% if reactions['user_reaction'] == 'like' %}active-like{% endif %}">
+          👍 Gostei ({{ reactions['likes'] }})
+        </button>
+        <button type="button" id="dislike-btn" onclick="openDislikeModal()" class="reaction-btn {% if reactions['user_reaction'] == 'dislike' %}active-dislike{% endif %}">
+          👎 Não gostei ({{ reactions['dislikes'] }})
+        </button>
+      </div>
+
+      <!-- Modal / Caixa de Dislike Obrigatória -->
+      <div id="dislike-modal" style="display:none; background:#1F2937; border:1px solid #DC2626; padding:1rem; border-radius:8px; margin-bottom:1.5rem;">
+        <h3 style="color:#F87171; margin-top:0;">Justificativa do Dislike (Obrigatório)</h3>
+        <p class="muted" style="font-size:0.85rem;">Explica por que não gostaste. A tua mensagem será enviada diretamente à equipa de suporte da plataforma para verificação.</p>
+        <textarea id="dislike-reason" rows="2" style="width:100%; box-sizing:border-box;" placeholder="Motivo obrigatório do dislike..."></textarea>
+        <div style="display:flex; gap:0.5rem; margin-top:0.6rem;">
+          <button type="button" onclick="submitDislikeWithReason()" style="background:#DC2626; color:#FFF;">Enviar Dislike</button>
+          <button type="button" onclick="closeDislikeModal()" style="background:#4B5563;">Cancelar</button>
+        </div>
+        <div id="dislike-error" style="color:#F87171; font-size:0.85rem; margin-top:0.4rem;"></div>
+      </div>
+
+      <!-- Secção de Comentários -->
+      <div class="comments-section" style="margin-top:1.5rem;">
+        <h3>Comentários ({{ comments|length }})</h3>
+        <div id="comments-list" style="display:flex; flex-direction:column; gap:0.8rem; margin-bottom:1rem;">
+          {% for c in comments %}
+          <div class="comment-bubble" style="background:#111827; padding:0.7rem 0.9rem; border-radius:8px; border:1px solid #374151;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+              <strong>{{ c['display_name'] }}</strong>
+              <span class="muted" style="font-size:0.75rem;">{{ c['created_at'][:16].replace('T', ' ') }}</span>
+            </div>
+            <p style="margin:0;">{{ c['body'] }}</p>
+          </div>
+          {% else %}
+          <p class="muted" id="no-comments-msg">Ainda não há comentários. Seja o primeiro a comentar!</p>
+          {% endfor %}
+        </div>
+
+        {% if current_user %}
+        <form id="comment-form" onsubmit="submitComment(event)">
+          <div class="field" style="margin-bottom:0.5rem;">
+            <textarea id="comment-body" rows="2" required maxlength="500" placeholder="Escreve um comentário sobre este produto..."></textarea>
+          </div>
+          <button type="submit" style="background:#7C3AED;">Comentar</button>
+        </form>
+        {% else %}
+        <p class="muted"><a href="/entrar">Entra na tua conta</a> para deixar um comentário.</p>
+        {% endif %}
+      </div>
+
+      <!-- Autonomia do Proprietário (Editar / Eliminar) -->
+      {% if is_owner %}
+      <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid #374151;" />
+      <div class="owner-controls" style="background:#1E293B; padding:1rem; border-radius:8px; border:1px solid #3B82F6;">
+        <h3 style="color:#60A5FA; margin-top:0;">Painel de Autonomia do Post (Proprietário)</h3>
+        <details>
+          <summary style="cursor:pointer; color:#93C5FD; font-weight:bold;">✏️ Retificar / Editar Informações do Post</summary>
+          <form method="post" action="/posts/{{ post_id }}/editar" style="margin-top:0.8rem;">
+            <div class="field">
+              <label for="edit_theme">Título / Tema</label>
+              <input type="text" id="edit_theme" name="theme" value="{{ post['theme'] }}" required />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="edit_price">Preço (MT)</label>
+                <input type="number" id="edit_price" name="price_mt" step="0.01" value="{{ post['price_mt'] or '' }}" />
+              </div>
+              <div class="field">
+                <label for="edit_contact">Contacto</label>
+                <input type="text" id="edit_contact" name="contact" value="{{ post['contact'] }}" required />
+              </div>
+            </div>
+            <div class="field">
+              <label for="edit_location">Localização</label>
+              <input type="text" id="edit_location" name="location" value="{{ post['location'] or '' }}" />
+            </div>
+            <div class="field">
+              <label for="edit_description">Descrição</label>
+              <textarea name="description" rows="2">{{ post['description'] or '' }}</textarea>
+            </div>
+            <button type="submit" style="background:#2563EB;">Guardar Alterações</button>
+          </form>
+        </details>
+
+        <form method="post" action="/posts/{{ post_id }}/eliminar" style="margin-top:0.8rem;" onsubmit="return confirm('Tens a certeza de que queres eliminar permanentemente este post e toda a mídia associada?');">
+          <button type="submit" style="background:#991B1B; color:#FFF;">🗑️ Eliminar Post Permanentemente</button>
+        </form>
+      </div>
+      {% endif %}
+
       {% if current_user and current_user['user_id'] != post['user_id'] %}
-        <form method="post" action="/posts/{{ post_id }}/contactar" style="margin-top:1rem;">
+        <form method="post" action="/posts/{{ post_id }}/contactar" style="margin-top:1.5rem;">
           <div class="field">
             <label for="body">Contactar sobre este produto</label>
             <textarea id="body" name="body" rows="2" required maxlength="1000" placeholder="Olá, ainda tens este produto disponível?"></textarea>
           </div>
-          <button type="submit">Enviar mensagem</button>
+          <button type="submit">Enviar mensagem ao vendedor</button>
         </form>
 
         <form method="post" action="/posts/{{ post_id }}/transacao" style="margin-top:0.8rem; flex-direction: row; align-items: center; gap: 0.6rem;">
@@ -91,7 +211,7 @@
 
       {% if current_user and current_user['user_id'] != post['user_id'] %}
         <details style="margin-top:1rem;">
-          <summary class="muted" style="cursor:pointer;">Reportar este conteúdo</summary>
+          <summary class="muted" style="cursor:pointer;">Reportar este conteúdo à equipa</summary>
           <form method="post" action="/posts/{{ post_id }}/reportar" style="margin-top:0.5rem;">
             <div class="field">
               <label for="reason">Motivo</label>
@@ -110,5 +230,93 @@
     {% endif %}
   </div>
 {% endif %}
+
+<script>
+  // Script de Slideshow Automático
+  let currentSlideIndex = 0;
+  const slides = document.querySelectorAll('.carousel-slide');
+  const dots = document.querySelectorAll('.carousel-dots .dot');
+  let autoSlideTimer = null;
+
+  function showSlide(index) {
+    if (!slides.length) return;
+    slides.forEach(s => s.classList.remove('active'));
+    dots.forEach(d => d.classList.remove('active'));
+
+    currentSlideIndex = (index + slides.length) % slides.length;
+    slides[currentSlideIndex].classList.add('active');
+    if (dots[currentSlideIndex]) dots[currentSlideIndex].classList.add('active');
+  }
+
+  function nextSlide() { showSlide(currentSlideIndex + 1); resetTimer(); }
+  function prevSlide() { showSlide(currentSlideIndex - 1); resetTimer(); }
+  function goToSlide(idx) { showSlide(idx); resetTimer(); }
+
+  function startTimer() {
+    if (slides.length > 1) {
+      autoSlideTimer = setInterval(() => { showSlide(currentSlideIndex + 1); }, 3500);
+    }
+  }
+  function resetTimer() {
+    clearInterval(autoSlideTimer);
+    startTimer();
+  }
+  startTimer();
+
+  // Reações e Comentários
+  function openDislikeModal() {
+    document.getElementById('dislike-modal').style.display = 'block';
+  }
+  function closeDislikeModal() {
+    document.getElementById('dislike-modal').style.display = 'none';
+  }
+
+  async function submitReaction(type, reason = null) {
+    const formData = new FormData();
+    formData.set('reaction_type', type);
+    if (reason) formData.set('reason', reason);
+
+    try {
+      const res = await fetch('/posts/{{ post_id }}/react', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        alert(data.error || 'Erro ao registar reação.');
+      }
+    } catch (e) {
+      alert('Erro de rede ao registar reação.');
+    }
+  }
+
+  async function submitDislikeWithReason() {
+    const reasonText = document.getElementById('dislike-reason').value.trim();
+    if (!reasonText) {
+      document.getElementById('dislike-error').textContent = 'O motivo do dislike é obrigatório!';
+      return;
+    }
+    await submitReaction('dislike', reasonText);
+  }
+
+  async function submitComment(ev) {
+    ev.preventDefault();
+    const body = document.getElementById('comment-body').value.trim();
+    if (!body) return;
+    const formData = new FormData();
+    formData.set('body', body);
+
+    try {
+      const res = await fetch('/posts/{{ post_id }}/comments', { method: 'POST', body: formData });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Erro ao enviar comentário.');
+      }
+    } catch (e) {
+      alert('Erro de rede ao enviar comentário.');
+    }
+  }
+</script>
 
 {% endblock %}

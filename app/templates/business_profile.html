@@ -1,34 +1,213 @@
 {% extends "base.html" %}
-{% block title %}{{ business['name'] if business else 'Negócio' }} — Boladas-ponto-com{% endblock %}
+{% block title %}{{ business['name'] if business else 'Empresa' }} — Boladas-ponto-com{% endblock %}
 {% block content %}
 
 {% if business is none %}
-  <h1>Negócio não encontrado</h1>
+  <div class="card" style="text-align:center; padding:3rem;">
+    <h1>🏢 Empresa não encontrada</h1>
+    <p class="muted">A empresa solicitada não existe ou foi removida.</p>
+    <a href="/explorar" class="btn-primary">Voltar ao Feed</a>
+  </div>
 {% else %}
-  <div class="card" style="--cat-accent: {{ category.accent }};">
-    <span class="badge">{{ category.label }}</span>
-    <h1>{{ business['name'] }}</h1>
-    {% if business['description'] %}<p>{{ business['description'] }}</p>{% endif %}
-    {% if business['location'] %}<p class="muted">📍 {{ business['location'] }}</p>{% endif %}
-    <p class="muted">Contacto: {{ business['contact'] }}</p>
-  </div>
 
-  <h2>Produtos / posts</h2>
-  {% if not posts %}
-    <p class="muted">Este negócio ainda não tem posts publicados.</p>
-  {% else %}
-  <div class="history-grid">
-    {% for row in posts %}
-    <a href="/posts/{{ row['post_id'] }}" style="text-decoration:none; color:inherit;">
-      <div class="card" style="--cat-accent: {{ category.accent }}; padding: 0.6rem;">
-        {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
-        <p style="margin: 0.6rem 0 0.2rem; font-weight: 600;">{{ row['theme'] }}</p>
-        {% if row['price_mt'] %}<p class="muted" style="margin:0;">{{ row['price_mt'] | preco_mt }}</p>{% endif %}
-      </div>
-    </a>
-    {% endfor %}
+<!-- LOJA EMPRESARIAL - ESTILO FERRAGEM LENDÁRIA -->
+<div class="store-hero {% if business['seasonal_theme'] %}theme-{{ business['seasonal_theme'] }}{% endif %}">
+  <div class="store-cover-wrap">
+    {% if business['cover_photo_url'] %}
+      <img src="{{ business['cover_photo_url'] }}" alt="Capa de {{ business['name'] }}" class="store-cover-img" />
+    {% else %}
+      <div style="width:100%; height:100%; background: linear-gradient(135deg, #1E1B4B 0%, #311B92 50%, #111827 100%);"></div>
+    {% endif %}
+    <div class="store-cover-overlay"></div>
   </div>
-  {% endif %}
+  
+  <div class="store-header-body">
+    <div class="store-logo-frame">
+      {% if business['profile_photo_url'] %}
+        <img src="{{ business['profile_photo_url'] }}" alt="Logótipo {{ business['name'] }}" class="store-logo-img" />
+      {% else %}
+        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#1F2937; color:#9CA3AF; font-size:3rem; font-weight:bold;">
+          {{ business['name'][:2] | upper }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="store-meta">
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.4rem;">
+        <span class="badge" style="background: {{ category.accent }}; color: #111827; font-weight:700;">{{ category.label }}</span>
+        <span class="badge" style="background: #10B981; color: #064E3B; font-weight:700;">✅ Empresa Verificada</span>
+        {% if business['seasonal_theme'] and business['seasonal_theme'] != 'padrao' %}
+          <span class="badge" style="background: #F59E0B; color: #78350F; font-weight:700;">🎉 Tema: {{ business['seasonal_theme'] | replace('_', ' ') | capitalize }}</span>
+        {% endif %}
+      </div>
+      <h1 class="store-title">{{ business['name'] }}</h1>
+      {% if business['location'] %}
+        <p class="muted" style="margin: 0.3rem 0 0; font-size: 0.95rem; color: #D1D5DB;">📍 {{ business['location'] }} &middot; Moçambique</p>
+      {% endif %}
+    </div>
+
+    <div class="store-actions">
+      <form method="post" action="/mensagens/iniciar" style="margin:0;">
+        <input type="hidden" name="business_id" value="{{ business['business_id'] }}" />
+        <button type="submit" class="btn-messenger">💬 Messenger Boladas</button>
+      </form>
+      <a href="tel:{{ business['contact'] }}" class="btn-secondary" style="text-decoration:none; padding:0.6rem 1rem; font-weight:600;">📞 {{ business['contact'] }}</a>
+      <a href="https://wa.me/258{{ business['contact'] | replace(' ', '') | replace('+', '') }}" target="_blank" class="btn-whatsapp">📱 WhatsApp</a>
+      
+      {% if is_owner %}
+        <a href="/empresa/{{ business['business_id'] }}/editar" class="btn-secondary" style="text-decoration:none; padding:0.6rem 1rem;">⚙️ Definições</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if business['seasonal_theme'] and business['seasonal_theme'] != 'padrao' %}
+  <div class="festive-banner">
+    ✨ Celebração Ativa em {{ business['name'] }}: {{ business['seasonal_theme'] | replace('_', ' ') | upper }} ✨
+  </div>
 {% endif %}
 
+<!-- SEPARADORES DA LOJA -->
+<div class="store-tabs">
+  <button class="tab-link active" onclick="switchTab('produtos-tab', this)">📦 Catálogo de Produtos ({{ posts | length }})</button>
+  <button class="tab-link" onclick="switchTab('sobre-tab', this)">🏢 Sobre a Empresa</button>
+  <button class="tab-link" onclick="switchTab('garantia-tab', this)">🛡️ Garantia & Mediação</button>
+  {% if is_owner %}
+    <button class="tab-link" onclick="switchTab('gestao-tab', this)">🎨 Fotos & Tema Festivo</button>
+  {% endif %}
+</div>
+
+<!-- ABAS DE CONTEÚDO -->
+<div id="produtos-tab" class="tab-content" style="display:block;">
+  <h2 style="font-size: 1.3rem; margin-bottom: 1rem;">Produtos & Anúncios Publicados</h2>
+  {% if not posts %}
+    <div class="card" style="text-align:center; padding: 2rem;">
+      <p class="muted">Esta empresa ainda não publicou produtos no catálogo.</p>
+      {% if is_owner %}
+        <p><a href="/criar" class="btn-primary">➕ Publicar Primeiro Produto</a></p>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="history-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+      {% for row in posts %}
+      <div class="product-card-rich">
+        <div class="product-card-thumb-wrap">
+          <span class="product-id-badge">ID: #{{ row['post_id'][:8] }}</span>
+          {% if row['image_url'] %}
+            <img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" class="product-card-thumb" />
+          {% else %}
+            <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#111827; color:#6B7280; font-size:2.5rem;">📦</div>
+          {% endif %}
+        </div>
+        <div class="product-card-body">
+          <h3 class="product-card-title">{{ row['theme'] }}</h3>
+          <p class="product-seller-link">🏢 {{ business['name'] }}</p>
+
+          {% if row['price_mt'] %}
+            <div class="product-price-tag">{{ row['price_mt'] | preco_mt }}</div>
+          {% endif %}
+
+          <div class="mediation-info">
+            🛡️ Mediação Plataforma: <strong>872599084</strong>
+          </div>
+
+          {% if row['location'] %}
+            <p class="muted" style="margin: 0.2rem 0; font-size: 0.85rem;">📍 {{ row['location'] }}</p>
+          {% endif %}
+
+          <div class="product-card-footer">
+            <a href="/posts/{{ row['post_id'] }}" class="btn-secondary" style="flex:1; text-align:center; padding:0.5rem; text-decoration:none;">👁️ Ver Anúncio</a>
+            <form method="post" action="/mensagens/iniciar" style="margin:0;">
+              <input type="hidden" name="post_id" value="{{ row['post_id'] }}" />
+              <button type="submit" class="btn-messenger" style="padding:0.5rem 0.8rem; font-size:0.85rem;">💬 Messenger</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+<div id="sobre-tab" class="tab-content" style="display:none;">
+  <div class="card" style="padding: 1.5rem;">
+    <h2>Sobre {{ business['name'] }}</h2>
+    {% if business['description'] %}
+      <p style="font-size: 1.05rem; line-height: 1.6;">{{ business['description'] }}</p>
+    {% else %}
+      <p class="muted">Empresa registada na plataforma Boladas-ponto-com em Moçambique.</p>
+    {% endif %}
+
+    <hr style="border-color: #374151; margin: 1.5rem 0;" />
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+      <div>
+        <strong>🏷️ Categoria de Actividade:</strong>
+        <p class="muted">{{ category.label }}</p>
+      </div>
+      <div>
+        <strong>📞 Contacto Directo:</strong>
+        <p class="muted">{{ business['contact'] }}</p>
+      </div>
+      <div>
+        <strong>📍 Localização Principal:</strong>
+        <p class="muted">{{ business['location'] or 'Moçambique' }}</p>
+      </div>
+      <div>
+        <strong>🛡️ Contacto de Mediação:</strong>
+        <p class="muted">872599084</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="garantia-tab" class="tab-content" style="display:none;">
+  <div class="card" style="padding: 1.5rem;">
+    <h2>🛡️ Garantia de Transação & Mediação Boladas</h2>
+    <p>A <strong>Boladas-ponto-com</strong> oferece mediação gratuita para todas as compras e vendas em Moçambique.</p>
+    <ul>
+      <li><strong>Contacto Oficial de Mediação:</strong> <code>872599084</code></li>
+      <li><strong>ID do Produto:</strong> Cada post possui um código único de rastreio verificável no Backblaze B2.</li>
+      <li><strong>Pagamentos Seguros:</strong> Os pagamentos são negociados diretamente entre o comprador e a empresa sem comissão abusiva.</li>
+    </ul>
+  </div>
+</div>
+
+{% if is_owner %}
+<div id="gestao-tab" class="tab-content" style="display:none;">
+  <div class="card" style="padding: 1.5rem;">
+    <h2>🎨 Gestão de Fotos, Capa e Tema Festivo</h2>
+    
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+      <a href="/empresa/{{ business['business_id'] }}/fotos" class="btn-primary" style="text-decoration:none;">📸 Alterar Foto de Perfil / Capa</a>
+      <a href="/empresa/{{ business['business_id'] }}/editar" class="btn-secondary" style="text-decoration:none;">⚙️ Editar Informações</a>
+      <a href="/empresa/{{ business['business_id'] }}/gestores" class="btn-secondary" style="text-decoration:none;">👥 Gerir Sócios / Equipa</a>
+    </div>
+
+    <h3>🎉 Escolher Tema Sazonal para a Loja</h3>
+    <form method="post" action="/empresa/{{ business['business_id'] }}/tema" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+      <select name="theme" style="padding:0.6rem; border-radius:8px; background:#111827; color:#FFF; border:1px solid #374151;">
+        <option value="padrao" {% if business['seasonal_theme'] == 'padrao' %}selected{% endif %}>Padrão (Sem tema)</option>
+        <option value="natal" {% if business['seasonal_theme'] == 'natal' %}selected{% endif %}>🎄 Natal</option>
+        <option value="ano_novo" {% if business['seasonal_theme'] == 'ano_novo' %}selected{% endif %}>🎆 Ano Novo</option>
+        <option value="pascoa" {% if business['seasonal_theme'] == 'pascoa' %}selected{% endif %}>🐰 Páscoa</option>
+        <option value="mulher_mz" {% if business['seasonal_theme'] == 'mulher_mz' %}selected{% endif %}>🌺 Dia da Mulher Moçambicana (7 Abril)</option>
+        <option value="festas_empresa" {% if business['seasonal_theme'] == 'festas_empresa' %}selected{% endif %}>🥳 Festas de Confraternização</option>
+      </select>
+      <button type="submit" class="btn-primary">Aplicar Tema à Loja</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.tab-link').forEach(el => el.classList.remove('active'));
+  document.getElementById(tabId).style.display = 'block';
+  btn.classList.add('active');
+}
+</script>
+
+{% endif %}
 {% endblock %}

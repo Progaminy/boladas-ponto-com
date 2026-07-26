@@ -224,6 +224,13 @@ CATEGORIES: dict[str, Category] = {
             image_style_hint="clean clinical look, calm blue and white tones",
         ),
         Category(
+            slug="venda_informal",
+            label="Venda Pessoal / Mercado Informal",
+            accent="#6B7280",
+            accent_dark="#374151",
+            image_style_hint="informal personal sales marketplace style, friendly approachable product photography",
+        ),
+        Category(
             slug="outro",
             label="Outra",
             accent="#7C3AED",
@@ -251,4 +258,4 @@ def get_category(slug: str | None) -> Category:
 
 
 def list_categories() -> list[Category]:
-    return [c for c in CATEGORIES.values() if c.slug != "outro"]
+    return [c for c in CATEGORIES.values() if c.slug not in ("outro", "venda_informal")]

@@ -17,6 +17,36 @@ Isto vale para o resto da aplicação:
 - **"Não verificado" nunca é apresentado como "limpo".** A moderação por IA devolve explicitamente "não verificado" quando a chamada falha, em vez de deixar passar como aprovado; o reporte com revisão humana continua a ser a rede de segurança por baixo.
 - **Falhar diz porquê.** Quando todos os provedores de IA falham, o erro apresentado inclui a razão real de cada um — não uma mensagem genérica que esconde a causa.
 
+## Regras do Projeto & Funcionalidades Principais
+
+Qualquer visitante ou utilizador registado pode consultar as seguintes regras e funcionalidades da plataforma:
+
+1. **Diretório Público de Lojas & Empresas (`/empresas`)**:
+   - Qualquer utilizador pode visualizar e navegar nas páginas completas de empresas e lojas físicas reais criadas no sistema:
+     - **Farmácia Moçambique Vida** (Medicamentos, vitaminas, saúde e bem-estar).
+     - **Ferragem Lendária Maputo** (Cimento, tubos PVC, pregos e materiais de construção).
+     - **Moda & Estilo Boutique** (Capulanas de luxo, vestidos de gala e vestuário).
+     - **Mercado Popular de Xipamanine** (Arroz por grosso, óleo alimentar, feijão e mercearia).
+     - **Transporte & Carga Expresso** (Mudanças residenciais e fretes de material).
+   - Cada empresa possui uma página personalizada estilo montra profissional com capa, logótipo, NUIT, localização, catálogo de produtos, lista de sócios/gestores e botões de contacto direto (`WhatsApp`, `Ligar`, `Messenger Boladas`).
+
+2. **Comparador de Preços & Detetador de Proximidade GPS (`/comparar`)**:
+   - Permite aos utilizadores pesquisar por produto (ex.: *Cimento, Paracetamol, Capulana, Arroz, Mudança*) e comparar instantaneamente os preços em Meticais (`MT`) praticados por diferentes lojas e vendedores.
+   - Integração com a API de Geolocalização GPS do navegador (`navigator.geolocation`) para calcular a distância exata em quilómetros (`km`) até à loja física mais próxima (`🚗 1.2 km de distância - Av. 24 de Julho`), facilitando compras presenciais imediatas.
+
+3. **Feed Social Estilo Facebook / TikTok (`/explorar` e `/`)**:
+   - Ao aceder à plataforma, o utilizador entra diretamente no Feed Social de Negócios para navegar em fotos de produtos.
+   - Cada cartão exibe a foto/avatar do perfil do vendedor ou insígnia SVG dinâmica em gradiente, ID do produto (`#...`), preço em MT, contacto de mediação da plataforma (`872599084`), botões de reações (👍 Like / 👎 Dislike com justificativa auditável) e caixa pública de comentários.
+
+4. **Autonomia Total de Perfil, Edição & Temas Festivos (`/perfil/fotos` e `/empresa/{id}`)**:
+   - O utilizador tem controlo total para retificar, editar ou apagar anúncios, atualizar fotos de perfil/capa e ativar temas sazonais/festivos (Natal, Festas de Empresa, etc.) na sua página ou loja a qualquer momento.
+
+5. **Canal e Botão de Assistência Humana (`872599084`)**:
+   - A qualquer momento, o utilizador pode carregar no botão `🆘 Pedir Assistência Humana` nas mensagens ou anúncios para abrir uma linha direta de apoio e mediação com a equipa da plataforma Boladas-ponto-com.
+
+6. **Resiliência contra Exaustão de Quota de IA**:
+   - Se as APIs de IA (Vertex Gemini / GMICloud) atingirem o limite de requisições (`429 RESOURCE_EXHAUSTED`), o post é concluído como `completed` com a imagem/descrição fornecida pelo utilizador, preservando o upload e proveniência B2 sem nunca bloquear a publicação.
+
 ## Stack
 
 - **Backend + frontend**: FastAPI + Jinja2 (um único serviço Python).

@@ -11,9 +11,6 @@ router = APIRouter()
 
 @router.get("/explorar", response_class=HTMLResponse)
 def explore(request: Request, categoria: str | None = None, local: str | None = None):
-    if get_current_user(request) is None:
-        return RedirectResponse("/entrar", status_code=303)
-
     rows = db.list_public_posts(category=categoria or None, location_query=local or None)
     posts = [{"row": row, "category": get_category(row["category"])} for row in rows]
     return templates.TemplateResponse(

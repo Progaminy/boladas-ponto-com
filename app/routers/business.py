@@ -13,6 +13,27 @@ from app.templating import templates
 router = APIRouter()
 
 
+@router.get("/empresas", response_class=HTMLResponse)
+def list_all_businesses_directory(
+    request: Request,
+    q: str | None = None,
+    cat: str | None = None,
+):
+    businesses = db.list_all_businesses(category=cat, search=q)
+    categories = list_categories()
+    return templates.TemplateResponse(
+        request,
+        "businesses_directory.html",
+        {
+            "businesses": businesses,
+            "categories": categories,
+            "selected_cat": cat or "",
+            "search_query": q or "",
+            "current_user": get_current_user(request),
+        },
+    )
+
+
 @router.get("/empresa", response_class=HTMLResponse)
 def business_list(request: Request):
     user = get_current_user(request)
@@ -178,18 +199,19 @@ def business_member_remove(request: Request, business_id: str, member_id: str):
 
 
 @router.get("/negocio/{business_id}", response_class=HTMLResponse)
+@router.get("/empresa/{business_id}", response_class=HTMLResponse)
 def business_profile(request: Request, business_id: str):
-    if get_current_user(request) is None:
-        return RedirectResponse("/entrar", status_code=303)
-
+    user = get_current_user(request)
     biz = db.get_business(business_id)
     if biz is None:
         return templates.TemplateResponse(
-            request, "business_profile.html", {"business": None, "posts": []}, status_code=404
+            request, "business_profile.html", {"business": None, "posts": [], "category": None, "is_owner": False}, status_code=404
         )
 
     posts = db.list_posts_by_business(business_id)
     category = get_category(biz["category"])
+    is_owner = user is not None and db.can_manage_business(business_id, user["user_id"])
     return templates.TemplateResponse(
-        request, "business_profile.html", {"business": biz, "posts": posts, "category": category}
+        request, "business_profile.html",
+        {"business": biz, "posts": posts, "category": category, "is_owner": is_owner}
     )

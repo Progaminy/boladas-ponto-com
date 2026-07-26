@@ -1,7 +1,7 @@
 """Perfil pessoal (público) e fotos de perfil/capa — uma pessoal (conta) e
 uma por cada empresa que o utilizador registar."""
 
-from fastapi import APIRouter, File, Request, UploadFile
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app import db
@@ -124,3 +124,25 @@ async def _handle_photo_uploads(profile_photo, cover_photo, *, key_fn, save_fn) 
             return f"Falha ao guardar no B2: {exc}"
         save_fn(kind, uploaded.key, uploaded.url)
     return None
+
+
+@router.post("/perfil/tema")
+def set_user_theme(request: Request, theme: str = Form("padrao")):
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+    db.set_user_seasonal_theme(user["user_id"], theme)
+    return RedirectResponse(f"/utilizador/{user['user_id']}", status_code=303)
+
+
+@router.post("/empresa/{business_id}/tema")
+def set_business_theme(request: Request, business_id: str, theme: str = Form("padrao")):
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+    try:
+        db.set_business_seasonal_theme(business_id, user["user_id"], theme)
+    except PermissionError:
+        pass
+    return RedirectResponse(f"/negocio/{business_id}", status_code=303)
+

@@ -1,8 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Explorar — Boladas-ponto-com{% endblock %}
 {% block content %}
-<h1>Explorar</h1>
-<p class="subtitle">Navega negócios por categoria e localização, e compara preços em Metical.</p>
+<div class="feed-header-widget" style="background:#1F2937; padding:1.2rem; border-radius:12px; margin-bottom:1.5rem; border:1px solid #374151; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+  <div>
+    <h1 style="margin:0; font-size:1.4rem; color:#F3F4F6;">📱 Feed Social de Negócios</h1>
+    <p class="muted" style="margin:0.3rem 0 0; font-size:0.88rem;">Explora produtos, anúncios e ofertas de negócios em Moçambique. Navega à vontade!</p>
+  </div>
+  <a href="/criar" class="btn-primary" style="background:#7C3AED; color:#FFF; text-decoration:none; padding:0.6rem 1.2rem; border-radius:8px; font-weight:600;">➕ Anunciar Produto / Criar Post (Opcional)</a>
+</div>
 
 <form method="get" action="/explorar" class="filter-form">
   <select name="categoria">
@@ -12,7 +17,7 @@
     {% endfor %}
   </select>
   <input type="text" name="local" placeholder="Localização (bairro, cidade)" value="{{ location_query }}" />
-  <button type="submit">Filtrar</button>
+  <button type="submit">Filtrar Feed</button>
 </form>
 
 {% if not posts %}
@@ -30,19 +35,82 @@
     </div>
   {% endif %}
 {% else %}
-<div class="history-grid">
+<div class="history-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
   {% for p in posts %}
   {% set row = p.row %}
-  <a href="/posts/{{ row['post_id'] }}" style="text-decoration:none; color:inherit;">
-    <div class="card" style="--cat-accent: {{ p.category.accent }}; padding: 0.6rem;">
-      {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
-      <p style="margin: 0.6rem 0 0.2rem; font-weight: 600;">{{ row['theme'] }}</p>
-      <p class="muted" style="margin:0;">{{ row['business'] }}</p>
-      {% if row['price_mt'] %}<p style="margin:0.2rem 0; font-weight:600;">{{ row['price_mt'] | preco_mt }}</p>{% endif %}
-      {% if row['location'] %}<p class="muted" style="margin:0; font-size:0.8rem;">📍 {{ row['location'] }}</p>{% endif %}
-      <span class="badge" style="margin-top:0.4rem;">{{ p.category.label }}</span>
+  <div class="product-card-rich">
+    <div class="product-card-thumb-wrap">
+      <span class="product-id-badge">ID: #{{ row['post_id'][:8] }}</span>
+      {% if row['image_url'] %}
+        <img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" class="product-card-thumb" />
+      {% else %}
+        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#111827; color:#6B7280; font-size:2.5rem;">📦</div>
+      {% endif %}
     </div>
-  </a>
+    <div class="product-card-body">
+      <!-- FOTO DE PERFIL DO POSTADOR REFORÇADA -->
+      <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.6rem;">
+        {% if row['seller_photo_url'] %}
+          <img src="{{ row['seller_photo_url'] }}" alt="{{ row['business'] }}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:2px solid #7C3AED; box-shadow:0 2px 6px rgba(0,0,0,0.3);" />
+        {% else %}
+          <div style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%); display:flex; align-items:center; justify-content:center; color:#FFFFFF; font-weight:800; font-size:0.95rem; border:2px solid #374151; box-shadow:0 2px 6px rgba(0,0,0,0.3); flex-shrink:0;">
+            {{ row['business'][:2] | upper }}
+          </div>
+        {% endif %}
+        <div>
+          {% if row['business_id'] %}
+            <a href="/empresa/{{ row['business_id'] }}" class="product-seller-link" style="margin:0; font-weight:700; color:#F9FAFB; display:block;">🏢 {{ row['business'] }}</a>
+          {% else %}
+            <a href="/utilizador/{{ row['user_id'] }}" class="product-seller-link" style="margin:0; font-weight:700; color:#F9FAFB; display:block;">👤 {{ row['business'] }}</a>
+          {% endif %}
+          <span class="muted" style="font-size:0.75rem;">Vendedor Moçambique</span>
+        </div>
+      </div>
+
+      <h3 class="product-card-title">{{ row['theme'] }}</h3>
+      
+      {% if row['price_mt'] %}
+        <div class="product-price-tag">{{ row['price_mt'] | preco_mt }}</div>
+      {% endif %}
+      
+      <div class="mediation-info">
+        🛡️ Mediação Plataforma: <strong>872599084</strong>
+      </div>
+      
+      {% if row['location'] %}
+        <p class="muted" style="margin: 0.2rem 0; font-size: 0.85rem;">📍 {{ row['location'] }}</p>
+      {% endif %}
+      
+      <span class="badge" style="background: {{ p.category.accent }}; color: #111827; font-weight:700; width: fit-content; margin-top:0.4rem;">{{ p.category.label }}</span>
+      
+      <!-- REAÇÕES (LIKE / DISLIKE) E MESSENGER -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.8rem; padding-top:0.6rem; border-top:1px solid #374151; flex-wrap:wrap; gap:0.4rem;">
+        <div style="display:flex; gap:0.4rem;">
+          <form method="post" action="/posts/{{ row['post_id'] }}/react" style="margin:0;">
+            <input type="hidden" name="type" value="like" />
+            <button type="submit" class="reaction-btn" style="padding:0.3rem 0.6rem; font-size:0.82rem;" title="Gostar do anúncio">👍 Gostar</button>
+          </form>
+          <a href="/posts/{{ row['post_id'] }}" class="reaction-btn" style="padding:0.3rem 0.6rem; font-size:0.82rem; text-decoration:none;" title="Não gostar com motivo">👎 Dislike</a>
+        </div>
+        
+        <div style="display:flex; gap:0.4rem;">
+          <a href="/posts/{{ row['post_id'] }}" class="btn-secondary" style="padding:0.4rem 0.6rem; font-size:0.8rem; text-decoration:none;">👁️ Ver Anúncio</a>
+          <form method="post" action="/mensagens/iniciar" style="margin:0;">
+            <input type="hidden" name="post_id" value="{{ row['post_id'] }}" />
+            <button type="submit" class="btn-messenger" style="padding:0.4rem 0.7rem; font-size:0.8rem;">💬 Messenger</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ÁREA DE COMENTÁRIOS DIRETA NO FEED -->
+      <div style="margin-top:0.8rem; padding-top:0.6rem; border-top:1px dashed #374151;">
+        <form method="post" action="/posts/{{ row['post_id'] }}/comments" style="display:flex; gap:0.4rem; margin:0;">
+          <input type="text" name="body" placeholder="Escreve um comentário público..." required maxlength="500" style="flex:1; padding:0.4rem 0.7rem; border-radius:8px; background:#111827; border:1px solid #374151; color:#F9FAFB; font-size:0.85rem;" />
+          <button type="submit" class="btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:#374151; color:#FFF;">💬 Comentar</button>
+        </form>
+      </div>
+    </div>
+  </div>
   {% endfor %}
 </div>
 {% endif %}

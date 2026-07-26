@@ -117,7 +117,7 @@ def register_submit(
     user_id = uuid.uuid4().hex
     db.create_user(user_id, data.email, auth.hash_password(data.password), data.display_name)
     auth.login_user(request, user_id)
-    return RedirectResponse("/criar", status_code=303)
+    return RedirectResponse("/explorar", status_code=303)
 
 
 @router.get("/entrar", response_class=HTMLResponse)
@@ -135,7 +135,7 @@ def login_submit(request: Request, email: str = Form(...), password: str = Form(
         )
 
     auth.login_user(request, user["user_id"])
-    return RedirectResponse("/criar", status_code=303)
+    return RedirectResponse("/explorar", status_code=303)
 
 
 @router.post("/sair")

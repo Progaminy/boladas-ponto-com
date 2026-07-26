@@ -61,21 +61,27 @@
     </details>
   </fieldset>
 
-  <div class="field">
-    <label for="category">Categoria *</label>
-    <select id="category" name="category" required>
-      {% for c in categories %}
-      <option value="{{ c.slug }}">{{ c.label }}</option>
-      {% endfor %}
-    </select>
+  <div id="category-individual-badge" class="badge-informal" style="background:#374151; color:#F3F4F6; padding:0.6rem 0.9rem; border-radius:8px; margin-bottom:1rem; border:1px solid #4B5563;">
+    📌 <strong>Categoria Automática:</strong> Venda Pessoal / Mercado Informal
   </div>
-  <div class="field">
-    <label for="category_custom">Ou escreve uma categoria diferente (opcional)</label>
-    <input type="text" id="category_custom" name="category_custom" maxlength="60" placeholder="Se a tua categoria não estiver na lista" />
-    <p class="muted" style="margin:0.3rem 0 0; font-size:0.85rem;">
-      Não sabes qual escolher? <a href="#" id="suggest-category-link">Sugerir automaticamente a partir da descrição</a>
-      <span id="suggest-category-status"></span>
-    </p>
+
+  <div id="category-business-fields" style="display:none;">
+    <div class="field">
+      <label for="category">Categoria da Empresa *</label>
+      <select id="category" name="category">
+        {% for c in categories %}
+        <option value="{{ c.slug }}">{{ c.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="category_custom">Ou escreve uma categoria diferente (opcional)</label>
+      <input type="text" id="category_custom" name="category_custom" maxlength="60" placeholder="Se a tua categoria não estiver na lista" />
+      <p class="muted" style="margin:0.3rem 0 0; font-size:0.85rem;">
+        Não sabes qual escolher? <a href="#" id="suggest-category-link">Sugerir automaticamente a partir da descrição</a>
+        <span id="suggest-category-status"></span>
+      </p>
+    </div>
   </div>
 
   <div class="field-row">
@@ -142,18 +148,29 @@
 <script>
   const publishAs = document.getElementById("publish_as");
   const categorySelect = document.getElementById("category");
+  const categoryBadge = document.getElementById("category-individual-badge");
+  const categoryFields = document.getElementById("category-business-fields");
   const locationInput = document.getElementById("location");
   const contactInput = document.getElementById("contact");
   const advanced = document.getElementById("advanced-options");
 
-  publishAs.addEventListener("change", () => {
-    const opt = publishAs.selectedOptions[0];
-    if (publishAs.value === "individual") return;
-    if (opt.dataset.category) categorySelect.value = opt.dataset.category;
-    if (opt.dataset.location && !locationInput.value) locationInput.value = opt.dataset.location;
-    if (opt.dataset.contact && !contactInput.value) contactInput.value = opt.dataset.contact;
-    advanced.open = true;
-  });
+  function updateCategoryVisibility() {
+    if (publishAs.value === "individual") {
+      categoryBadge.style.display = "block";
+      categoryFields.style.display = "none";
+    } else {
+      categoryBadge.style.display = "none";
+      categoryFields.style.display = "block";
+      const opt = publishAs.selectedOptions[0];
+      if (opt && opt.dataset.category) categorySelect.value = opt.dataset.category;
+      if (opt && opt.dataset.location && !locationInput.value) locationInput.value = opt.dataset.location;
+      if (opt && opt.dataset.contact && !contactInput.value) contactInput.value = opt.dataset.contact;
+      advanced.open = true;
+    }
+  }
+
+  publishAs.addEventListener("change", updateCategoryVisibility);
+  updateCategoryVisibility();
 
   document.getElementById("post-form").addEventListener("submit", () => {
     const themeInput = document.getElementById("theme");

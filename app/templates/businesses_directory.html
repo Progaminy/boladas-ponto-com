@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Diretório de Lojas & Empresas — Boladas-ponto-com{% endblock %}
+{% block content %}
+
+<div style="margin-bottom: 2rem; text-align: center;">
+  <h1 style="font-size: 2.2rem; font-weight: 800; background: linear-gradient(135deg, #A855F7, #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+    🏢 Lojas e Empresas em Destaque
+  </h1>
+  <p class="subtitle" style="max-width: 700px; margin: 0.5rem auto 1.5rem;">
+    Explora as páginas de empresas reais em Moçambique: Farmácias, Ferragens, Boutiques de Roupa, Mercados Populares e Serviços de Transporte.
+  </p>
+
+  <!-- Filtro de Pesquisa e Categoria -->
+  <form method="get" action="/empresas" style="display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; max-width: 800px; margin: 0 auto;">
+    <input type="text" name="q" value="{{ search_query }}" placeholder="Pesquisar loja por nome ou localização..." style="flex: 1; min-width: 250px; padding: 0.75rem 1rem; border-radius: 10px; background: #111827; border: 1px solid #374151; color: #F9FAFB;" />
+    <select name="cat" style="padding: 0.75rem 1rem; border-radius: 10px; background: #111827; border: 1px solid #374151; color: #F9FAFB;">
+      <option value="">Todas as Categorias</option>
+      {% for c in categories %}
+        <option value="{{ c.id }}" {% if c.id == selected_cat %}selected{% endif %}>{{ c.label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-primary" style="padding: 0.75rem 1.4rem;">🔍 Filtrar Lojas</button>
+  </form>
+</div>
+
+{% if not businesses %}
+  <div class="card" style="text-align: center; padding: 3rem 1rem;">
+    <p style="font-size: 1.2rem; color: #9CA3AF;">Nenhuma empresa encontrada com os filtros selecionados.</p>
+    <a href="/empresas" class="btn-secondary" style="margin-top: 1rem; display: inline-block;">Ver Todas as Lojas</a>
+  </div>
+{% else %}
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
+    {% for b in businesses %}
+    <div class="card" style="padding: 0; overflow: hidden; border: 1px solid #374151; background: #1F2937; display: flex; flex-direction: column; height: 100%;">
+      <!-- Capa de Banner -->
+      <div style="height: 120px; background: linear-gradient(135deg, #3B82F6, #9333EA); background-image: url('{{ b['cover_photo_url'] or '' }}'); background-size: cover; background-position: center; position: relative;">
+        <span style="position: absolute; top: 10px; right: 10px; background: rgba(17, 24, 39, 0.85); color: #10B981; font-weight: 700; font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 20px; border: 1px solid #10B981;">
+          ✓ Empresa Verificada
+        </span>
+      </div>
+
+      <div style="padding: 1.2rem; margin-top: -35px; position: relative; flex: 1; display: flex; flex-direction: column;">
+        <!-- Logótipo de perfil -->
+        <div style="display: flex; align-items: flex-end; gap: 0.8rem; margin-bottom: 0.8rem;">
+          {% if b['profile_photo_url'] %}
+            <img src="{{ b['profile_photo_url'] }}" alt="{{ b['name'] }}" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 3px solid #1F2937; background: #111827; box-shadow: 0 4px 10px rgba(0,0,0,0.4);" />
+          {% else %}
+            <div style="width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #7C3AED, #4F46E5); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 800; font-size: 1.8rem; border: 3px solid #1F2937; box-shadow: 0 4px 10px rgba(0,0,0,0.4);">
+              {{ b['name'][:2] | upper }}
+            </div>
+          {% endif %}
+          <div>
+            <h3 style="margin: 0; font-size: 1.2rem; color: #F9FAFB; font-weight: 700;">{{ b['name'] }}</h3>
+            <span class="badge" style="background: #374151; color: #E5E7EB; font-size: 0.75rem; margin-top: 0.2rem; display: inline-block;">{{ b['category'] }}</span>
+          </div>
+        </div>
+
+        {% if b['description'] %}
+          <p style="font-size: 0.9rem; color: #D1D5DB; margin: 0.5rem 0 1rem; line-height: 1.4; flex: 1;">
+            {{ b['description'] | truncate(110) }}
+          </p>
+        {% endif %}
+
+        <div style="font-size: 0.85rem; color: #9CA3AF; margin-bottom: 1rem;">
+          <p style="margin: 0.2rem 0;">📍 {{ b['location'] }}</p>
+          <p style="margin: 0.2rem 0;">📞 {{ b['contact'] }} &middot; 📦 {{ b['product_count'] }} Produtos à venda</p>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; margin-top: auto;">
+          <a href="/empresa/{{ b['business_id'] }}" class="btn-primary" style="flex: 1; text-align: center; text-decoration: none; padding: 0.6rem 1rem; font-size: 0.9rem;">
+            🏢 Visitar Loja da Empresa
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% endblock %}

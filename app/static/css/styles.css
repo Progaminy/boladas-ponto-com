@@ -356,3 +356,378 @@ a { color: var(--accent); }
   pre.json-block { font-size: 0.72rem; }
   .verify-files li { font-size: 0.7rem; }
 }
+
+/* --- Carrossel / Slideshow Automático --- */
+.carousel-container {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  margin: 1rem auto;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.carousel-track { display: flex; width: 100%; }
+.carousel-slide {
+  display: none;
+  width: 100%;
+  text-align: center;
+}
+.carousel-slide.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+.carousel-slide img {
+  width: 100%;
+  max-height: 450px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.carousel-controls {
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  transform: translateY(-50%);
+  pointer-events: none;
+  padding: 0 0.5rem;
+  box-sizing: border-box;
+}
+.carousel-btn {
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 0.9rem;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+.carousel-btn:hover { background: rgba(0, 0, 0, 0.9); }
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+}
+.carousel-dots .dot {
+  width: 10px; height: 10px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.carousel-dots .dot.active { background: var(--accent); }
+
+@keyframes fadeIn {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+/* --- Reações (Likes / Dislikes) --- */
+.reaction-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.reaction-btn:hover { border-color: var(--accent); }
+.active-like { background: #166534 !important; color: #DCFCE7 !important; border-color: #22C55E !important; }
+.active-dislike { background: #991B1B !important; color: #FEE2E2 !important; border-color: #EF4444 !important; }
+
+/* --- Temas Festivos --- */
+.festive-banner {
+  background: linear-gradient(90deg, #D97706, #DC2626, #7C3AED);
+  color: #FFFFFF;
+  padding: 0.75rem 1.2rem;
+  border-radius: 10px;
+  text-align: center;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.theme-natal .card {
+  border: 2px solid #EF4444 !important;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+}
+.theme-ano_novo .card {
+  border: 2px solid #F59E0B !important;
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+}
+.theme-pascoa .card {
+  border: 2px solid #8B5CF6 !important;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+}
+.theme-mulher_mz .card {
+  border: 2px solid #EC4899 !important;
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.25);
+}
+.theme-festas_empresa .card {
+  border: 2px solid #3B82F6 !important;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.25);
+}
+
+/* --- Loja Empresarial Estilo Ferragem Lendária --- */
+.store-hero {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+  background: #111827;
+  border: 1px solid #374151;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
+.store-cover-wrap {
+  height: 220px;
+  width: 100%;
+  position: relative;
+  background: linear-gradient(135deg, #1E1E2E 0%, #0F0F1A 100%);
+  overflow: hidden;
+}
+.store-cover-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0.75;
+}
+.store-cover-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, #111827 0%, transparent 80%);
+}
+.store-header-body {
+  padding: 0 1.5rem 1.5rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-top: -60px;
+  position: relative;
+  z-index: 2;
+  flex-wrap: wrap;
+}
+.store-logo-frame {
+  width: 120px; height: 120px;
+  border-radius: 20px;
+  border: 4px solid #111827;
+  background: #1F2937;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  flex-shrink: 0;
+}
+.store-logo-img { width: 100%; height: 100%; object-fit: cover; }
+.store-meta { flex: 1; min-width: 250px; }
+.store-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #F9FAFB;
+  margin: 0;
+  line-height: 1.2;
+}
+.store-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 1rem;
+}
+.btn-messenger {
+  background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%);
+  color: #FFF !important;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+}
+.btn-messenger:hover { opacity: 0.95; transform: translateY(-1px); }
+.btn-whatsapp {
+  background: #166534;
+  color: #DCFCE7 !important;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+/* --- Tab Navigation --- */
+.store-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid #374151;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+.tab-link {
+  padding: 0.8rem 1.2rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #9CA3AF;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.tab-link.active, .tab-link:hover {
+  color: #F9FAFB;
+  border-bottom-color: var(--accent);
+}
+
+/* --- Cartão de Produto Rico no Feed --- */
+.product-card-rich {
+  background: #1F2937;
+  border: 1px solid #374151;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.product-card-rich:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+  border-color: var(--accent);
+}
+.product-card-thumb-wrap {
+  width: 100%;
+  height: 200px;
+  background: #111827;
+  position: relative;
+  overflow: hidden;
+}
+.product-card-thumb {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.product-id-badge {
+  position: absolute;
+  top: 8px; left: 8px;
+  background: rgba(17, 24, 39, 0.85);
+  backdrop-filter: blur(6px);
+  color: #9CA3AF;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.product-card-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.product-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #F9FAFB;
+  margin: 0 0 0.4rem;
+  line-height: 1.3;
+}
+.product-seller-link {
+  font-size: 0.85rem;
+  color: #9CA3AF;
+  text-decoration: none;
+  margin-bottom: 0.6rem;
+  display: inline-block;
+}
+.product-seller-link:hover { color: var(--accent); }
+.product-price-tag {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #10B981;
+  margin: 0.2rem 0;
+}
+.mediation-info {
+  background: rgba(55, 65, 81, 0.5);
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #D1D5DB;
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.product-card-footer {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.8rem;
+}
+
+/* --- Messenger UI --- */
+.messenger-container {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 1.5rem;
+  background: #1F2937;
+  border: 1px solid #374151;
+  border-radius: 14px;
+  min-height: 550px;
+  overflow: hidden;
+}
+@media (max-width: 768px) {
+  .messenger-container { grid-template-columns: 1fr; }
+}
+.threads-panel {
+  background: #111827;
+  border-right: 1px solid #374151;
+  padding: 1rem;
+}
+.thread-item {
+  padding: 0.8rem;
+  border-radius: 10px;
+  background: #1F2937;
+  margin-bottom: 0.6rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.thread-item:hover, .thread-item.active {
+  border-color: var(--accent);
+  background: #374151;
+}
+.chat-main {
+  display: flex;
+  flex-direction: column;
+  padding: 1.2rem;
+}
+.chat-messages-stream {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  overflow-y: auto;
+  padding: 1rem 0;
+}
+.msg-bubble {
+  max-width: 75%;
+  padding: 0.8rem 1.1rem;
+  border-radius: 14px;
+  line-height: 1.4;
+  font-size: 0.95rem;
+}
+.msg-mine {
+  align-self: flex-end;
+  background: #7C3AED;
+  color: #FFF;
+  border-bottom-right-radius: 2px;
+}
+.msg-other {
+  align-self: flex-start;
+  background: #374151;
+  color: #F9FAFB;
+  border-bottom-left-radius: 2px;
+}
+
+

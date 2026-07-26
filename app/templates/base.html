@@ -10,12 +10,13 @@
   <header class="topbar">
     <a class="brand" href="/">Boladas-ponto-com</a>
     <nav>
+      <a href="/explorar">📱 Feed</a>
+      <a href="/empresas">🏢 Lojas & Empresas</a>
+      <a href="/comparar">⚖️ Comparar Preços & GPS</a>
       {% if current_user %}
-        <a href="/explorar">Explorar</a>
-        <a href="/criar">Criar post</a>
+        <a href="/criar">➕ Anunciar</a>
         <a href="/empresa">Minhas empresas</a>
-        <a href="/historico">Histórico</a>
-        <a href="/utilizador/{{ current_user['user_id'] }}">O meu perfil</a>
+        <a href="/perfil/fotos">O Meu Perfil</a>
         <a href="/mensagens">Mensagens</a>
         <a href="/transacoes">Transações</a>
         {% if current_user['is_admin'] %}<a href="/admin/moderacao">Moderação</a>{% endif %}

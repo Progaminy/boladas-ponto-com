@@ -5,50 +5,124 @@
 {% if profile_user is none %}
   <h1>Utilizador não encontrado</h1>
 {% else %}
-  {% if profile_user['cover_photo_url'] %}
-    <img src="{{ profile_user['cover_photo_url'] }}" alt="capa" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; margin-bottom:-3rem;" />
-  {% endif %}
-  <div class="card">
-    {% if profile_user['profile_photo_url'] %}
-      <img src="{{ profile_user['profile_photo_url'] }}" alt="{{ profile_user['display_name'] }}" style="width:96px; height:96px; border-radius:50%; object-fit:cover;" />
-    {% endif %}
-    <h1>{{ profile_user['display_name'] }}</h1>
-
-    {% if current_user and current_user['user_id'] == profile_user['user_id'] %}
-      <p><a href="/perfil/fotos">Alterar as minhas fotos →</a></p>
-    {% endif %}
-
-    {% if businesses %}
-      <h2>Empresas</h2>
-      <div class="history-grid">
-        {% for b in businesses %}
-        <a href="/negocio/{{ b['business_id'] }}" style="text-decoration:none; color:inherit;">
-          <div class="card" style="padding:0.6rem;">
-            {% if b['profile_photo_url'] %}<img src="{{ b['profile_photo_url'] }}" alt="{{ b['name'] }}" />{% endif %}
-            <p style="margin:0.5rem 0 0; font-weight:600;">{{ b['name'] }}</p>
-          </div>
-        </a>
-        {% endfor %}
+  <div class="profile-festive-wrapper theme-{{ profile_user['seasonal_theme'] or 'padrao' }}">
+    {% if profile_user['seasonal_theme'] and profile_user['seasonal_theme'] != 'padrao' %}
+      <div class="festive-banner">
+        🎉 ✨ Perfil em Celebração: <strong>{{ profile_user['seasonal_theme'] | replace('_', ' ') | title }}</strong> ✨ 🎉
       </div>
     {% endif %}
 
-    <h2>Vendas pessoais</h2>
-    {% if not posts %}
-      <p class="muted">Ainda não tem posts pessoais publicados.</p>
-    {% else %}
-      <div class="history-grid">
-        {% for row in posts %}
-        <a href="/posts/{{ row['post_id'] }}" style="text-decoration:none; color:inherit;">
-          <div class="card" style="padding:0.6rem;">
-            {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
-            <p style="margin:0.5rem 0 0; font-weight:600;">{{ row['theme'] }}</p>
-            {% if row['price_mt'] %}<p class="muted" style="margin:0;">{{ row['price_mt'] | preco_mt }}</p>{% endif %}
-          </div>
-        </a>
-        {% endfor %}
-      </div>
+    {% if profile_user['cover_photo_url'] %}
+      <img src="{{ profile_user['cover_photo_url'] }}" alt="capa" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; margin-bottom:-3rem;" />
     {% endif %}
+
+    <div class="card">
+      {% if profile_user['profile_photo_url'] %}
+        <img src="{{ profile_user['profile_photo_url'] }}" alt="{{ profile_user['display_name'] }}" style="width:96px; height:96px; border-radius:50%; object-fit:cover;" />
+      {% endif %}
+      <h1>{{ profile_user['display_name'] }}</h1>
+
+      {% if current_user and current_user['user_id'] == profile_user['user_id'] %}
+        <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; align-items:center;">
+          <a href="/perfil/fotos">📷 Alterar fotos (Galeria) →</a>
+
+          <!-- Seletor de Época / Tema Festivo -->
+          <form method="post" action="/perfil/tema" style="display:inline-flex; align-items:center; gap:0.5rem;">
+            <label for="theme-select" style="margin:0; font-size:0.85rem;"><strong>Época/Festividade:</strong></label>
+            <select id="theme-select" name="theme" onchange="this.form.submit()" style="width:auto; padding:0.3rem;">
+              <option value="padrao" {% if profile_user['seasonal_theme'] == 'padrao' or not profile_user['seasonal_theme'] %}selected{% endif %}>Padrão</option>
+              <option value="natal" {% if profile_user['seasonal_theme'] == 'natal' %}selected{% endif %}>🎄 Natal</option>
+              <option value="ano_novo" {% if profile_user['seasonal_theme'] == 'ano_novo' %}selected{% endif %}>🎆 Ano Novo</option>
+              <option value="pascoa" {% if profile_user['seasonal_theme'] == 'pascoa' %}selected{% endif %}>🐰 Páscoa</option>
+              <option value="mulher_mz" {% if profile_user['seasonal_theme'] == 'mulher_mz' %}selected{% endif %}>🌺 Dia da Mulher Moçambicana (7 de Abril)</option>
+              <option value="festas_empresa" {% if profile_user['seasonal_theme'] == 'festas_empresa' %}selected{% endif %}>🥳 Festas da Empresa / Confraternização</option>
+            </select>
+          </form>
+        </div>
+
+        <details style="margin-bottom:1rem; background:#1F2937; padding:0.8rem; border-radius:8px;">
+          <summary style="cursor:pointer; color:#A78BFA; font-weight:bold;">🤖 Pedir à IA para Gerar/Editar Avatar ou Foto de Capa</summary>
+          <div style="margin-top:0.8rem;">
+            <div class="field">
+              <label for="ai-asset-type">Tipo</label>
+              <select id="ai-asset-type">
+                <option value="avatar">Avatar / Foto de Perfil</option>
+                <option value="cover">Foto de Capa</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="ai-prompt-details">Instruções de estilo / edição para a IA</label>
+              <input type="text" id="ai-prompt-details" placeholder="Ex: Avatar estilo profissional futurista com fundo azul" />
+            </div>
+            <button type="button" onclick="generateAiAsset()" style="background:#7C3AED;">Gerar Foto com IA</button>
+            <span id="ai-gen-status" style="margin-left:0.5rem; font-size:0.85rem;"></span>
+          </div>
+        </details>
+      {% endif %}
+
+      {% if businesses %}
+        <h2>Empresas</h2>
+        <div class="history-grid">
+          {% for b in businesses %}
+          <a href="/negocio/{{ b['business_id'] }}" style="text-decoration:none; color:inherit;">
+            <div class="card" style="padding:0.6rem;">
+              {% if b['profile_photo_url'] %}<img src="{{ b['profile_photo_url'] }}" alt="{{ b['name'] }}" />{% endif %}
+              <p style="margin:0.5rem 0 0; font-weight:600;">{{ b['name'] }}</p>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <h2>Vendas pessoais</h2>
+      {% if not posts %}
+        <p class="muted">Ainda não tem posts pessoais publicados.</p>
+      {% else %}
+        <div class="history-grid">
+          {% for row in posts %}
+          <a href="/posts/{{ row['post_id'] }}" style="text-decoration:none; color:inherit;">
+            <div class="card" style="padding:0.6rem;">
+              {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
+              <p style="margin:0.5rem 0 0; font-weight:600;">{{ row['theme'] }}</p>
+              {% if row['price_mt'] %}<p class="muted" style="margin:0;">{{ row['price_mt'] | preco_mt }}</p>{% endif %}
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
   </div>
 {% endif %}
 
+<script>
+async function generateAiAsset() {
+  const assetType = document.getElementById('ai-asset-type').value;
+  const promptDetails = document.getElementById('ai-prompt-details').value.trim();
+  const statusEl = document.getElementById('ai-gen-status');
+
+  if (!promptDetails) {
+    statusEl.textContent = 'Escreve primeiro o estilo pretendido.';
+    return;
+  }
+
+  statusEl.textContent = 'A gerar imagem via IA...';
+  const formData = new FormData();
+  formData.set('asset_type', assetType);
+  formData.set('prompt_details', promptDetails);
+
+  try {
+    const res = await fetch('/ia/gerar-imagem', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      statusEl.textContent = 'Gerado com sucesso! Redirecionando...';
+      window.location.reload();
+    } else {
+      statusEl.textContent = data.error || 'Erro na geração.';
+    }
+  } catch (e) {
+    statusEl.textContent = 'Erro de rede.';
+  }
+}
+</script>
 {% endblock %}
+

@@ -120,8 +120,6 @@ def post_thread_reply(request: Request, post_id: str, other_user_id: str, body: 
 
 @router.post("/posts/{post_id}/contactar")
 def contact_post_owner(request: Request, post_id: str, body: str = Form(...)):
-    """Ponto de entrada para INICIAR contacto a partir da página de um post —
-    vai sempre para o dono do post. Respostas seguintes usam post_thread_reply."""
     user = get_current_user(request)
     if user is None:
         return RedirectResponse("/entrar", status_code=303)
@@ -136,9 +134,53 @@ def contact_post_owner(request: Request, post_id: str, body: str = Form(...)):
 
     body = body.strip()
     if body:
-        # a referência ao post_id/tema vai sempre à frente, para o destinatário
-        # identificar de imediato o produto em causa.
-        full_body = f"[Sobre: {post['theme']} — post {post_id}]\n{body}"
+        full_body = f"[Sobre: {post['theme']} — post #{post_id[:8]}]\n{body}"
         db.create_message(uuid.uuid4().hex, post_id, user["user_id"], owner_id, full_body)
 
     return RedirectResponse(f"/mensagens/posto/{post_id}/{owner_id}", status_code=303)
+
+
+@router.post("/mensagens/iniciar")
+def initiate_messenger_chat(
+    request: Request,
+    post_id: str | None = Form(None),
+    business_id: str | None = Form(None),
+    initial_text: str | None = Form("Olá! Estou interessado no vosso anúncio."),
+):
+    """Ponto de entrada único do Messenger Boladas-ponto-com a partir de qualquer
+    anúncio ou loja empresarial."""
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
+    target_post_id = post_id
+    target_owner_id = None
+
+    if post_id:
+        post = db.get_post(post_id)
+        if post:
+            target_owner_id = post["user_id"]
+    elif business_id:
+        biz = db.get_business(business_id)
+        if biz:
+            target_owner_id = biz["user_id"]
+            posts = db.list_posts_by_business(business_id)
+            if posts:
+                target_post_id = posts[0]["post_id"]
+
+    if not target_owner_id:
+        return RedirectResponse("/explorar", status_code=303)
+
+    if target_owner_id == user["user_id"]:
+        return RedirectResponse("/mensagens", status_code=303)
+
+    # Cria mensagem inicial se ainda não houver mensagens
+    existing_thread = db.list_thread(user["user_id"], target_post_id, target_owner_id)
+    if not existing_thread and initial_text:
+        db.create_message(
+            uuid.uuid4().hex, target_post_id, user["user_id"], target_owner_id, initial_text.strip()
+        )
+
+    if target_post_id:
+        return RedirectResponse(f"/mensagens/posto/{target_post_id}/{target_owner_id}", status_code=303)
+    return RedirectResponse("/mensagens", status_code=303)

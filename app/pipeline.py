@@ -352,3 +352,24 @@ def generate_caption(data: PostInput, category: Category) -> CaptionResult:
     raise GenerationError(
         "Todos os provedores de texto configurados falharam. " + " | ".join(errors)
     )
+
+
+def build_fallback_caption(data: PostInput, category: Category) -> CaptionResult:
+    """Gera uma legenda e hashtags de reserva quando os provedores de IA falharem
+    (ex.: quota de API excedida 429). Garante o princípio 'Nunca fingir'
+    registando a causa real enquanto permite que o post seja publicado e
+    gravado no B2 com sucesso."""
+    caption_text = (data.description or "").strip() or f"{data.theme} - {data.business}"
+    cta = (data.call_to_action or "").strip() or "Contacta-me já!"
+    cat_tag = category.slug.replace("-", "_")
+    hashtags = [cat_tag, "boladas", "mocambique", "vendas", "negocios"]
+
+    return CaptionResult(
+        caption=caption_text,
+        call_to_action=cta,
+        hashtags=hashtags,
+        provider="fallback_local",
+        model="sem_ia_quota_excedida",
+        raw_text=caption_text,
+    )
+
