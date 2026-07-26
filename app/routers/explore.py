@@ -11,8 +11,22 @@ router = APIRouter()
 
 @router.get("/explorar", response_class=HTMLResponse)
 def explore(request: Request, categoria: str | None = None, local: str | None = None):
+    current_user = get_current_user(request)
     rows = db.list_public_posts(category=categoria or None, location_query=local or None)
-    posts = [{"row": row, "category": get_category(row["category"])} for row in rows]
+    
+    user_id = current_user["user_id"] if current_user else None
+    posts = []
+    for row in rows:
+        post_id = row["post_id"]
+        reactions = db.get_post_reactions(post_id, user_id)
+        comments = db.get_post_comments(post_id)
+        posts.append({
+            "row": row,
+            "category": get_category(row["category"]),
+            "reactions": reactions,
+            "comments": comments,
+        })
+
     return templates.TemplateResponse(
         request, "explore.html",
         {

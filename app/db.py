@@ -769,30 +769,41 @@ def add_post_reaction(post_id: str, user_id: str, reaction_type: str, reason: st
     reason_clean = reason.strip() if reason else None
 
     with get_conn() as conn:
-        # Se já existia reação deste utilizador, substitui ou insere
-        conn.execute(
-            """
-            INSERT INTO post_reactions (reaction_id, post_id, user_id, type, reason, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(post_id, user_id) DO UPDATE SET
-                type = excluded.type,
-                reason = excluded.reason,
-                created_at = excluded.created_at
-            """,
-            (reaction_id, post_id, user_id, reaction_type, reason_clean, now),
-        )
+        existing = conn.execute(
+            "SELECT type FROM post_reactions WHERE post_id = ? AND user_id = ?",
+            (post_id, user_id),
+        ).fetchone()
 
-        # Se for um dislike, encaminha AUTOMATICAMENTE um alerta para a equipa da plataforma (reports)
-        if reaction_type == "dislike" and reason_clean:
-            report_id = str(uuid.uuid4())
-            report_reason = f"[FEEDBACK DISLIKE AUTOMÁTICO] Post {post_id} recebeu dislike de {user_id}: {reason_clean}"
+        if existing and existing["type"] == reaction_type and reaction_type == "like":
+            # Toggling off (remover o Gostar se tornar a clicar)
+            conn.execute(
+                "DELETE FROM post_reactions WHERE post_id = ? AND user_id = ?",
+                (post_id, user_id),
+            )
+        else:
             conn.execute(
                 """
-                INSERT INTO reports (report_id, post_id, reporter_id, reason, source, created_at)
-                VALUES (?, ?, ?, ?, 'dislike_feedback', ?)
+                INSERT INTO post_reactions (reaction_id, post_id, user_id, type, reason, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(post_id, user_id) DO UPDATE SET
+                    type = excluded.type,
+                    reason = excluded.reason,
+                    created_at = excluded.created_at
                 """,
-                (report_id, post_id, user_id, report_reason, now),
+                (reaction_id, post_id, user_id, reaction_type, reason_clean, now),
             )
+
+            # Se for um dislike, encaminha AUTOMATICAMENTE um alerta para a equipa da plataforma (reports)
+            if reaction_type == "dislike" and reason_clean:
+                report_id = str(uuid.uuid4())
+                report_reason = f"[FEEDBACK DISLIKE AUTOMÁTICO] Post {post_id} recebeu dislike de {user_id}: {reason_clean}"
+                conn.execute(
+                    """
+                    INSERT INTO reports (report_id, post_id, reporter_id, reason, source, created_at)
+                    VALUES (?, ?, ?, ?, 'dislike_feedback', ?)
+                    """,
+                    (report_id, post_id, user_id, report_reason, now),
+                )
 
     return get_post_reactions(post_id, user_id)
 

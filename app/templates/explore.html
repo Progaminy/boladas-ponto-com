@@ -84,13 +84,37 @@
       <span class="badge" style="background: {{ p.category.accent }}; color: #111827; font-weight:700; width: fit-content; margin-top:0.4rem;">{{ p.category.label }}</span>
       
       <!-- REAÇÕES (LIKE / DISLIKE) E MESSENGER -->
+      {% set reactions = p.get('reactions') or {'likes': 0, 'dislikes': 0, 'user_reaction': None} %}
+      {% set comments = p.get('comments') or [] %}
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.8rem; padding-top:0.6rem; border-top:1px solid #374151; flex-wrap:wrap; gap:0.4rem;">
-        <div style="display:flex; gap:0.4rem;">
+        <div style="display:flex; gap:0.4rem; align-items:center;">
+          <!-- BOTÃO LIKE COM CONTAGEM -->
           <form method="post" action="/posts/{{ row['post_id'] }}/react" style="margin:0;">
             <input type="hidden" name="type" value="like" />
-            <button type="submit" class="reaction-btn" style="padding:0.3rem 0.6rem; font-size:0.82rem;" title="Gostar do anúncio">👍 Gostar</button>
+            <button type="submit" class="reaction-btn" style="padding:0.35rem 0.7rem; font-size:0.85rem; border-radius:6px; background:{% if reactions.user_reaction == 'like' %}#059669{% else %}#374151{% endif %}; color:#FFFFFF; border:none; cursor:pointer; font-weight:700;" title="Gostar do anúncio">
+              👍 {{ reactions.likes }} Gostar
+            </button>
           </form>
-          <a href="/posts/{{ row['post_id'] }}" class="reaction-btn" style="padding:0.3rem 0.6rem; font-size:0.82rem; text-decoration:none;" title="Não gostar com motivo">👎 Dislike</a>
+
+          <!-- DISLIKE COM DROPDOWN DE MOTIVO -->
+          <details style="position:relative; display:inline-block;">
+            <summary class="reaction-btn" style="padding:0.35rem 0.7rem; font-size:0.85rem; border-radius:6px; background:{% if reactions.user_reaction == 'dislike' %}#DC2626{% else %}#374151{% endif %}; color:#FFFFFF; cursor:pointer; list-style:none; font-weight:700;">
+              👎 {{ reactions.dislikes }} Dislike
+            </summary>
+            <div style="position:absolute; bottom:115%; left:0; background:#1F2937; border:1px solid #4B5563; padding:0.6rem; border-radius:8px; width:220px; z-index:20; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+              <form method="post" action="/posts/{{ row['post_id'] }}/react" style="margin:0;">
+                <input type="hidden" name="type" value="dislike" />
+                <label style="font-size:0.75rem; color:#D1D5DB; display:block; margin-bottom:0.3rem; font-weight:600;">Motivo do Dislike *</label>
+                <select name="reason" required style="width:100%; padding:0.35rem; font-size:0.8rem; background:#111827; color:#FFF; border:1px solid #374151; border-radius:4px; margin-bottom:0.4rem;">
+                  <option value="Preço muito elevado">Preço muito elevado</option>
+                  <option value="Pouca informação ou foto fraca">Pouca informação / foto fraca</option>
+                  <option value="Suspeita de anúncio falso">Suspeita de anúncio falso</option>
+                  <option value="Outro motivo">Outro motivo</option>
+                </select>
+                <button type="submit" style="width:100%; padding:0.35rem; background:#DC2626; color:white; border:none; border-radius:4px; font-size:0.8rem; font-weight:700; cursor:pointer;">Confirmar Dislike</button>
+              </form>
+            </div>
+          </details>
         </div>
         
         <div style="display:flex; gap:0.4rem;">
@@ -102,11 +126,29 @@
         </div>
       </div>
 
-      <!-- ÁREA DE COMENTÁRIOS DIRETA NO FEED -->
+      <!-- ÁREA DE COMENTÁRIOS E LISTAGEM DOS COMENTÁRIOS EXISTENTES -->
       <div style="margin-top:0.8rem; padding-top:0.6rem; border-top:1px dashed #374151;">
+        <h4 style="margin:0 0 0.5rem 0; font-size:0.85rem; color:#9CA3AF; display:flex; align-items:center; gap:0.4rem;">
+          💬 Comentários ({{ comments | length }})
+        </h4>
+
+        {% if comments %}
+          <div style="max-height: 150px; overflow-y: auto; margin-bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.2rem;">
+            {% for c in comments %}
+              <div style="background: #1F2937; padding: 0.4rem 0.6rem; border-radius: 6px; font-size: 0.82rem; border: 1px solid #374151;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.15rem;">
+                  <strong style="color: #60A5FA;">{{ c['display_name'] }}</strong>
+                  <span class="muted" style="font-size: 0.7rem;">{{ c['created_at'][:16] if c['created_at'] else '' }}</span>
+                </div>
+                <p style="margin: 0; color: #F3F4F6; font-size: 0.85rem;">{{ c['body'] }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
         <form method="post" action="/posts/{{ row['post_id'] }}/comments" style="display:flex; gap:0.4rem; margin:0;">
           <input type="text" name="body" placeholder="Escreve um comentário público..." required maxlength="500" style="flex:1; padding:0.4rem 0.7rem; border-radius:8px; background:#111827; border:1px solid #374151; color:#F9FAFB; font-size:0.85rem;" />
-          <button type="submit" class="btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:#374151; color:#FFF;">💬 Comentar</button>
+          <button type="submit" class="btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:#374151; color:#FFF; font-weight:600;">Comentar</button>
         </form>
       </div>
     </div>

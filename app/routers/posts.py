@@ -29,8 +29,20 @@ THUMBNAIL_SIZE = 320
 
 @router.get("/", response_class=HTMLResponse)
 def root(request: Request, categoria: str | None = None, local: str | None = None):
+    current_user = get_current_user(request)
     rows = db.list_public_posts(category=categoria or None, location_query=local or None)
-    posts = [{"row": row, "category": get_category(row["category"])} for row in rows]
+    user_id = current_user["user_id"] if current_user else None
+    posts = []
+    for row in rows:
+        post_id = row["post_id"]
+        reactions = db.get_post_reactions(post_id, user_id)
+        comments = db.get_post_comments(post_id)
+        posts.append({
+            "row": row,
+            "category": get_category(row["category"]),
+            "reactions": reactions,
+            "comments": comments,
+        })
     return templates.TemplateResponse(
         request, "explore.html",
         {
@@ -151,7 +163,9 @@ def create_post(
     brand_name = None
     if publish_as != "individual":
         candidate = db.get_business(publish_as)
-        if candidate is None or candidate["user_id"] != user["user_id"]:
+        # can_manage_business e não comparação direta de user_id: os sócios
+        # de uma empresa também publicam em nome dela.
+        if candidate is None or not db.can_manage_business(publish_as, user["user_id"]):
             return JSONResponse({"error": "Empresa inválida."}, status_code=422)
         selected_business_id = publish_as
         brand_name = candidate["name"]
