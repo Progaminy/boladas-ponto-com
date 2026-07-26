@@ -5,7 +5,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
 
 from app import auth, db
-from app.models import UserCreate
+from app.categories import list_categories
+from app.models import BusinessInput, UserCreate
 from app.templating import templates
 
 router = APIRouter()
@@ -14,6 +15,70 @@ router = APIRouter()
 @router.get("/termos", response_class=HTMLResponse)
 def terms_page(request: Request):
     return templates.TemplateResponse(request, "terms.html", {})
+
+
+@router.get("/registar/empresa", response_class=HTMLResponse)
+def register_business_form(request: Request):
+    return templates.TemplateResponse(
+        request, "register_business.html",
+        {"error": None, "categories": list_categories()},
+    )
+
+
+@router.post("/registar/empresa", response_class=HTMLResponse)
+def register_business_submit(
+    request: Request,
+    business_name: str = Form(...),
+    category: str = Form(...),
+    category_custom: str | None = Form(None),
+    location: str | None = Form(None),
+    business_contact: str = Form(...),
+    description: str | None = Form(None),
+    responsible_name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    terms_accepted: str | None = Form(None),
+):
+    """Cadastro direto de empresa: cria a conta de acesso e a empresa num só
+    passo, para quem só quer registar o negócio e não uma conta pessoal."""
+
+    def erro(mensagem: str, codigo: int = 422):
+        return templates.TemplateResponse(
+            request, "register_business.html",
+            {"error": mensagem, "categories": list_categories()},
+            status_code=codigo,
+        )
+
+    if terms_accepted != "on":
+        return erro("Tens de ler e concordar com os Termos de Uso para criar conta.")
+
+    try:
+        conta = UserCreate(email=email, password=password, display_name=responsible_name)
+        negocio = BusinessInput(
+            name=business_name,
+            category=(category_custom or "").strip() or category,
+            description=description or None,
+            location=location or None,
+            contact=business_contact,
+        )
+    except ValidationError as exc:
+        return erro(exc.errors()[0]["msg"])
+
+    if db.get_user_by_email(conta.email) is not None:
+        return erro(
+            "Já existe uma conta com este email. Entra e usa «Nova empresa» "
+            "para registar outro negócio na mesma conta.",
+            codigo=409,
+        )
+
+    user_id = uuid.uuid4().hex
+    db.create_user(user_id, conta.email, auth.hash_password(conta.password), conta.display_name)
+
+    business_id = uuid.uuid4().hex
+    db.create_business(business_id, user_id, negocio)
+
+    auth.login_user(request, user_id)
+    return RedirectResponse(f"/negocio/{business_id}", status_code=303)
 
 
 @router.get("/registar", response_class=HTMLResponse)

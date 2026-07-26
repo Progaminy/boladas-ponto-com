@@ -267,6 +267,10 @@ a { color: var(--accent); }
 .filter-form select, .filter-form input { flex: 1; min-width: 0; }
 .filter-form button { flex: 0 0 auto; }
 
+.terms-row { flex-direction: row; align-items: center; gap: 0.5rem; }
+.terms-row input { width: auto; }
+.terms-row label { margin: 0; }
+
 /* --- gestores da empresa --- */
 .member-row {
   display: flex;

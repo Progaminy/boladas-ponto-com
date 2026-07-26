@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Registar empresa — Boladas-ponto-com{% endblock %}
+{% block content %}
+<h1>Registar a minha empresa</h1>
+<p class="subtitle">
+  Cria a empresa e o acesso num só passo. Se preferires começar por uma conta
+  pessoal e só depois registar o negócio, usa <a href="/registar">registo normal</a>.
+</p>
+
+{% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+
+{% set known_slugs = categories | map(attribute="slug") | list %}
+<form method="post" action="/registar/empresa">
+  <fieldset>
+    <legend>A empresa</legend>
+    <div class="field">
+      <label for="business_name">Nome da empresa *</label>
+      <input type="text" id="business_name" name="business_name" required maxlength="120" />
+    </div>
+    <div class="field">
+      <label for="category">Categoria *</label>
+      <select id="category" name="category" required>
+        {% for c in categories %}
+        <option value="{{ c.slug }}">{{ c.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="category_custom">Ou escreve uma categoria diferente (opcional)</label>
+      <input type="text" id="category_custom" name="category_custom" maxlength="60"
+             placeholder="Ex: Salão de Cabeleireiro" />
+    </div>
+    <div class="field">
+      <label for="description">O que vende (opcional)</label>
+      <textarea id="description" name="description" maxlength="300" rows="2"></textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="location">Localização</label>
+        <input type="text" id="location" name="location" maxlength="160"
+               placeholder="Bairro, cidade" />
+      </div>
+      <div class="field">
+        <label for="business_contact">Contacto da empresa *</label>
+        <input type="text" id="business_contact" name="business_contact" required maxlength="60" />
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Quem vai gerir</legend>
+    <p class="muted member-hint">
+      Estes dados são o acesso à plataforma. Depois de entrares, podes
+      acrescentar sócios como gestores da mesma empresa.
+    </p>
+    <div class="field">
+      <label for="responsible_name">Nome do responsável *</label>
+      <input type="text" id="responsible_name" name="responsible_name" required maxlength="80" />
+    </div>
+    <div class="field">
+      <label for="email">Email *</label>
+      <input type="email" id="email" name="email" required maxlength="200" />
+    </div>
+    <div class="field">
+      <label for="password">Password (mín. 8 caracteres) *</label>
+      <input type="password" id="password" name="password" required minlength="8" maxlength="200" />
+    </div>
+  </fieldset>
+
+  <div class="field terms-row">
+    <input type="checkbox" id="terms_accepted" name="terms_accepted" required />
+    <label for="terms_accepted">
+      Li e concordo com os <a href="/termos" target="_blank">Termos de Uso</a>
+    </label>
+  </div>
+
+  <button type="submit">Criar empresa e entrar</button>
+</form>
+
+<p class="muted">Já tens conta? <a href="/entrar">Entrar</a></p>
+{% endblock %}

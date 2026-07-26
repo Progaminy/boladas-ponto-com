@@ -19,13 +19,14 @@
     <label for="password">Password (mín. 8 caracteres)</label>
     <input type="password" id="password" name="password" required minlength="8" maxlength="200" />
   </div>
-  <div class="field" style="flex-direction: row; align-items: center; gap: 0.5rem;">
-    <input type="checkbox" id="terms_accepted" name="terms_accepted" required style="width: auto;" />
-    <label for="terms_accepted" style="margin: 0;">
+  <div class="field terms-row">
+    <input type="checkbox" id="terms_accepted" name="terms_accepted" required />
+    <label for="terms_accepted">
       Li e concordo com os <a href="/termos" target="_blank">Termos de Uso</a>
     </label>
   </div>
   <button type="submit">Registar</button>
 </form>
 <p class="muted">Já tens conta? <a href="/entrar">Entrar</a></p>
+<p class="muted">Vens registar um negócio? Podes <a href="/registar/empresa">criar a empresa e o acesso de uma só vez</a>.</p>
 {% endblock %}
