@@ -10,6 +10,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from app.categories import Category
+from app.formatting import format_price_mt
 
 _FONTS_DIR = Path(__file__).resolve().parent / "static" / "fonts"
 _BOLD_FONT_PATH = _FONTS_DIR / "DejaVuSans-Bold.ttf"
@@ -49,7 +50,7 @@ def _fit_font(
 
 
 def _format_price(price_mt: float) -> str:
-    return f"{price_mt:,.0f} MT".replace(",", " ")
+    return format_price_mt(price_mt)
 
 
 def add_business_overlay(

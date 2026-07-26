@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.categories import list_categories
 from app.config import PLATFORM_CONTACT_NUMBER
+from app.formatting import format_price_mt
 
 
 def _inject_current_user(request: Request) -> dict:
@@ -21,3 +22,4 @@ templates = Jinja2Templates(
 templates.env.globals["categories"] = list_categories()
 templates.env.globals["platform_contact"] = PLATFORM_CONTACT_NUMBER
 templates.env.filters["from_json"] = lambda s: json.loads(s) if s else []
+templates.env.filters["preco_mt"] = format_price_mt

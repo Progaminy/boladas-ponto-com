@@ -185,10 +185,20 @@ os casos de uso reais:
 | `rui@` | **sócio** da mesma farmácia, com acesso próprio |
 | `salomao@` | gere **duas empresas** (ferragens e padaria) |
 
-O script é idempotente (correr de novo não duplica nada) e `--limpar` remove os exemplos sem
-tocar em contas reais. Não cria posts: um post exige geração de imagem, que depende de
-créditos indisponíveis — inventar posts concluídos com imagens falsas contradiria o princípio
-"Nunca fingir".
+Com `--posts`, cria também anúncios **reais**: a legenda, a chamada para ação e as hashtags
+são geradas pela IA de verdade e enviadas para o Backblaze B2, com manifesto de proveniência.
+
+```bash
+python3 scripts/seed_exemplos.py --posts
+```
+
+Como o plano gratuito só permite 20 gerações por dia (ver abaixo), o script pode não conseguir
+criar todos os anúncios de uma vez — nesse caso diz-o claramente e pára, e correr outra vez no
+dia seguinte cria os que faltam sem duplicar os que já existem. Os anúncios ficam sem imagem
+gerada, e a página do post mostra-o explicitamente com o motivo real: mostrar uma imagem de
+substituição contradiria o princípio "Nunca fingir".
+
+O script é idempotente e `--limpar` remove os exemplos sem tocar em contas reais.
 
 As credenciais de demonstração para os jurados serão indicadas na submissão do Devpost,
 conforme exigido pelas regras oficiais do hackathon para aplicações com login.
@@ -223,7 +233,10 @@ isto é aceitável, mas é uma limitação a resolver antes de um uso real em pr
 | Capacidade | Estado | Verificação |
 |---|---|---|
 | Armazenamento no Backblaze B2 | ✅ | Upload, verificação por SHA-256 e remoção testados no bucket real |
+| Post completo de ponta a ponta | ✅ | `completed`, com `caption.txt` e `provenance.json` confirmados no bucket |
 | Legenda + CTA + hashtags | ✅ | Gerados pelo Gemini em português, com preço e bairro integrados |
+| Descrição a partir de uma foto | ✅ | Descreveu uma camisa real (cor, botões, colarinho) sem inventar marca nem tamanho |
+| Descrição a partir de explicação | ✅ | Transformou "usei duas vezes, está como nova" numa descrição comercial |
 | Sugestão automática de categoria | ✅ | Classificou corretamente farmácia e oficina mecânica |
 | Moderação de texto por IA | ✅ | Aprovou anúncio legítimo, sinalizou documentos falsificados |
 | Moderação visual (fotos/vídeo) | ✅ | Devolveu veredicto real sobre uma imagem real |
@@ -238,15 +251,21 @@ desse manifesto, histórico privado, galeria com filtros, mensagens ligadas ao p
 real do produto (4 fotos + vídeo de 30s validados), rastreio de transações, moderação em três
 camadas com revisão humana, diagnóstico do sistema e interface responsiva.
 
-### Por que a geração de imagem está bloqueada
+### O que o plano gratuito permite, e o que não
 
-O pipeline de imagem está implementado, testado e ligado a dois provedores. O que falta não é
-código — é acesso pago, e a barreira é concreta:
+A aplicação funciona sem geração de imagem: um anúncio com descrição, preço, contacto e fotos
+reais do produto é um anúncio válido. A imagem gerada por IA é um extra, e a sua ausência é
+mostrada e registada, nunca disfarçada.
 
-- **Gemini (Google):** a chave é válida e dá acesso a 56 modelos, mas **todos** os modelos de
-  imagem devolvem `429` com `limit: 0` — o plano gratuito não atribui qualquer quota de
-  geração de imagem. Seria preciso ativar faturação.
-- **GMICloud:** a chave é válida (78 modelos), mas a conta devolve `402 Insufficient credits`.
+Limites medidos no plano gratuito do Gemini:
+
+- **Texto (legendas, descrições, moderação, categorias):** funciona, com **20 gerações por dia
+  e por modelo** (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`). Chega para uso real de
+  demonstração, mas esgota-se depressa a testar.
+- **Imagem:** `429` com `limit: 0` em **todos** os modelos de imagem — o plano gratuito não
+  atribui qualquer quota. Seria preciso ativar faturação.
+- **GMICloud (alternativa):** a chave é válida (78 modelos), mas devolve `402 Insufficient
+  credits`.
 
 Ambas as alternativas exigem um cartão de crédito ou débito internacional. O autor está em
 Moçambique e não tem acesso a esse meio de pagamento: cartões pré-pagos não são aceites por

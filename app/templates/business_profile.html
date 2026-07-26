@@ -23,7 +23,7 @@
       <div class="card" style="--cat-accent: {{ category.accent }}; padding: 0.6rem;">
         {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
         <p style="margin: 0.6rem 0 0.2rem; font-weight: 600;">{{ row['theme'] }}</p>
-        {% if row['price_mt'] %}<p class="muted" style="margin:0;">{{ row['price_mt'] }} MT</p>{% endif %}
+        {% if row['price_mt'] %}<p class="muted" style="margin:0;">{{ row['price_mt'] | preco_mt }}</p>{% endif %}
       </div>
     </a>
     {% endfor %}

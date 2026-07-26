@@ -38,7 +38,7 @@
       {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
       <p style="margin: 0.6rem 0 0.2rem; font-weight: 600;">{{ row['theme'] }}</p>
       <p class="muted" style="margin:0;">{{ row['business'] }}</p>
-      {% if row['price_mt'] %}<p style="margin:0.2rem 0; font-weight:600;">{{ row['price_mt'] }} MT</p>{% endif %}
+      {% if row['price_mt'] %}<p style="margin:0.2rem 0; font-weight:600;">{{ row['price_mt'] | preco_mt }}</p>{% endif %}
       {% if row['location'] %}<p class="muted" style="margin:0; font-size:0.8rem;">📍 {{ row['location'] }}</p>{% endif %}
       <span class="badge" style="margin-top:0.4rem;">{{ p.category.label }}</span>
     </div>

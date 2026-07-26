@@ -48,7 +48,7 @@
       <p class="hashtags">
         {% for h in (post['hashtags'] | from_json) %}#{{ h }} {% endfor %}
       </p>
-      {% if post['price_mt'] %}<p>Preço: {{ post['price_mt'] }} MT</p>{% endif %}
+      {% if post['price_mt'] %}<p>Preço: {{ post['price_mt'] | preco_mt }}</p>{% endif %}
       {% if post['location'] %}<p>Localização: {{ post['location'] }}</p>{% endif %}
       <p>Contacto do negócio: {{ post['contact'] }}</p>
       <p><a href="/posts/{{ post_id }}/provenance">Ver detalhes da proveniência →</a></p>

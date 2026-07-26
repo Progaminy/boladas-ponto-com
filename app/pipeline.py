@@ -29,6 +29,7 @@ from app.config import (
     VERTEX_EXPRESS_API_KEY,
     ai_provider_order,
 )
+from app.formatting import format_price_mt
 from app.gemini_provider import (
     GeminiError,
     VertexExpressImageProvider,
@@ -226,7 +227,8 @@ _HASHTAG_RE = re.compile(r"^#?[\wÀ-ÿ]+$")
 
 def build_caption_prompt(data: PostInput, category: Category) -> str:
     business_line = data.brand_name or data.business
-    price_line = f"Preço: {data.price_mt} MT. " if data.price_mt else ""
+    # sem casas decimais quando o preço é inteiro: "850 MT", não "850.0 MT"
+    price_line = f"Preço: {format_price_mt(data.price_mt)}. " if data.price_mt else ""
     location_line = f"Localização: {data.location}. " if data.location else ""
     return (
         "Escreve conteúdo para um post de rede social em "
