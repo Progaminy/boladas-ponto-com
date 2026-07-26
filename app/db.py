@@ -207,6 +207,10 @@ def init_db() -> None:
         _ensure_column(conn, "users", "cover_photo_key", "cover_photo_key TEXT")
         _ensure_column(conn, "users", "cover_photo_url", "cover_photo_url TEXT")
         _ensure_column(conn, "users", "seasonal_theme", "seasonal_theme TEXT DEFAULT 'padrao'")
+        _ensure_column(conn, "users", "phone", "phone TEXT")
+        _ensure_column(conn, "users", "phone_prefix", "phone_prefix TEXT")
+        _ensure_column(conn, "users", "google_id", "google_id TEXT")
+        _ensure_column(conn, "users", "auth_provider", "auth_provider TEXT DEFAULT 'email'")
         _ensure_column(conn, "businesses", "profile_photo_key", "profile_photo_key TEXT")
         _ensure_column(conn, "businesses", "profile_photo_url", "profile_photo_url TEXT")
         _ensure_column(conn, "businesses", "cover_photo_key", "cover_photo_key TEXT")
@@ -247,21 +251,73 @@ def _now() -> str:
 # --- users -----------------------------------------------------------------
 
 def create_user(user_id: str, email: str, password_hash: str, display_name: str) -> None:
+    create_user_full(user_id=user_id, display_name=display_name, email=email, password_hash=password_hash)
+
+
+def create_user_full(
+    user_id: str,
+    display_name: str,
+    email: str | None = None,
+    password_hash: str | None = None,
+    phone: str | None = None,
+    phone_prefix: str | None = None,
+    google_id: str | None = None,
+    auth_provider: str = "email",
+) -> None:
     from app.config import ADMIN_EMAIL
 
     now = _now()
-    is_admin = 1 if ADMIN_EMAIL and email.strip().lower() == ADMIN_EMAIL else 0
+    clean_email = email.strip().lower() if email else f"user_{user_id[:8]}@boladas.com"
+    clean_hash = password_hash or "auth_external"
+    is_admin = 1 if ADMIN_EMAIL and email and email.strip().lower() == ADMIN_EMAIL else 0
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO users (user_id, email, password_hash, display_name, created_at, "
-            "terms_accepted_at, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, email, password_hash, display_name, now, now, is_admin),
+            """
+            INSERT INTO users (
+                user_id, email, password_hash, display_name, created_at,
+                terms_accepted_at, is_admin, phone, phone_prefix, google_id, auth_provider
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id, clean_email, clean_hash, display_name, now, now, is_admin,
+                phone, phone_prefix, google_id, auth_provider,
+            ),
         )
 
 
 def get_user_by_email(email: str) -> sqlite3.Row | None:
     with get_conn() as conn:
-        cur = conn.execute("SELECT * FROM users WHERE email = ?", (email,))
+        cur = conn.execute("SELECT * FROM users WHERE LOWER(email) = ?", (email.strip().lower(),))
+        return cur.fetchone()
+
+
+def get_user_by_phone(phone: str) -> sqlite3.Row | None:
+    clean_phone = phone.strip().replace(" ", "")
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT * FROM users WHERE phone = ? OR REPLACE(phone, ' ', '') = ?",
+            (phone.strip(), clean_phone),
+        )
+        return cur.fetchone()
+
+
+def get_user_by_email_or_phone(identifier: str) -> sqlite3.Row | None:
+    ident = identifier.strip()
+    clean_ident = ident.replace(" ", "")
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT * FROM users
+            WHERE LOWER(email) = ? OR phone = ? OR REPLACE(phone, ' ', '') = ?
+            """,
+            (ident.lower(), ident, clean_ident),
+        )
+        return cur.fetchone()
+
+
+def get_user_by_google_id(google_id: str) -> sqlite3.Row | None:
+    with get_conn() as conn:
+        cur = conn.execute("SELECT * FROM users WHERE google_id = ?", (google_id.strip(),))
         return cur.fetchone()
 
 
