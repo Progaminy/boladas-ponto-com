@@ -24,10 +24,19 @@ AI_PROVIDER = os.environ.get("AI_PROVIDER", "auto").strip().lower()
 if AI_PROVIDER not in {"auto", "vertex", "gmicloud"}:
     AI_PROVIDER = "auto"
 
-# Gemini via Vertex AI Express (genai.Client(vertexai=True, api_key=...)).
+# Gemini. A mesma chave pode servir duas APIs diferentes:
+#   - Gemini Developer API (AI Studio): genai.Client(api_key=...)
+#   - Vertex AI Express:                genai.Client(vertexai=True, api_key=...)
+# Chaves do AI Studio (formato "AQ.…" ou "AIza…") usam a primeira; por isso é
+# o valor por omissão. Define GEMINI_USE_VERTEX=1 para forçar o Vertex.
 VERTEX_EXPRESS_API_KEY = os.environ.get("VERTEX_EXPRESS_API_KEY")
+GEMINI_USE_VERTEX = os.environ.get("GEMINI_USE_VERTEX", "").strip().lower() in {
+    "1",
+    "true",
+    "sim",
+}
 GEMINI_IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
-GEMINI_CHAT_MODEL = os.environ.get("GEMINI_CHAT_MODEL", "gemini-2.5-flash")
+GEMINI_CHAT_MODEL = os.environ.get("GEMINI_CHAT_MODEL", "gemini-flash-latest")
 
 GMI_API_KEY = os.environ.get("GMI_API_KEY")
 GMI_IMAGE_MODEL = os.environ.get("GMI_IMAGE_MODEL", "seedream-5.0-lite")

@@ -67,37 +67,56 @@ def check_b2() -> Check:
         )
 
 
+_GEMINI_NAME = "Gemini (Google)"
+
+
 def check_vertex_express() -> Check:
     if not vertex_configured():
         return Check(
-            name="Gemini / Vertex AI Express",
+            name=_GEMINI_NAME,
             configured=False,
             ok=False,
             detail="VERTEX_EXPRESS_API_KEY não está definida no ambiente.",
         )
 
     try:
-        client = get_vertex_client()
-        # Operações de leitura: confirmam autenticação e acesso aos modelos
-        # sem gerar conteúdo nem gastar uma geração.
-        client.models.get(model=GEMINI_CHAT_MODEL)
-        client.models.get(model=GEMINI_IMAGE_MODEL)
-        return Check(
-            name="Gemini / Vertex AI Express",
-            configured=True,
-            ok=True,
-            detail=(
-                f"Chave aceite. Modelos disponíveis: {GEMINI_CHAT_MODEL} "
-                f"(texto/visão) e {GEMINI_IMAGE_MODEL} (imagem)."
-            ),
-        )
+        # models.list() é uma leitura barata que funciona com chave de API.
+        # (models.get() não serve aqui: é uma API administrativa que exige
+        # OAuth e devolvia 401 mesmo com uma chave perfeitamente válida.)
+        available = {m.name.replace("models/", "") for m in get_vertex_client().models.list()}
     except Exception as exc:
         return Check(
-            name="Gemini / Vertex AI Express",
+            name=_GEMINI_NAME,
             configured=True,
             ok=False,
             detail=f"Credencial presente, mas o acesso real falhou: {exc}",
         )
+
+    em_falta = [
+        m for m in (GEMINI_CHAT_MODEL, GEMINI_IMAGE_MODEL) if m not in available
+    ]
+    if em_falta:
+        return Check(
+            name=_GEMINI_NAME,
+            configured=True,
+            ok=False,
+            detail=(
+                f"Chave aceite ({len(available)} modelos), mas os modelos "
+                f"configurados não estão disponíveis: {', '.join(em_falta)}."
+            ),
+        )
+
+    return Check(
+        name=_GEMINI_NAME,
+        configured=True,
+        ok=True,
+        detail=(
+            f"Chave aceite, {len(available)} modelos acessíveis, incluindo "
+            f"{GEMINI_CHAT_MODEL} (texto/visão) e {GEMINI_IMAGE_MODEL} (imagem). "
+            "Nota: estar listado não garante quota — o plano gratuito do Gemini "
+            "tem limite zero para geração de imagem."
+        ),
+    )
 
 
 def check_gmicloud() -> Check:

@@ -28,18 +28,19 @@ from genblaze_core.providers import (
 )
 from genblaze_core.runnable.config import RunnableConfig
 
-from app.config import VERTEX_EXPRESS_API_KEY
+from app.config import GEMINI_USE_VERTEX, VERTEX_EXPRESS_API_KEY
 
 
 class GeminiError(RuntimeError):
     pass
 
 
-@lru_cache(maxsize=1)
-def get_vertex_client():
-    if not VERTEX_EXPRESS_API_KEY:
-        raise GeminiError("VERTEX_EXPRESS_API_KEY não configurada.")
+# Margem mínima de tokens de saída: os tokens de raciocínio dos modelos flash
+# consomem parte deste orçamento antes de o JSON sequer começar a ser escrito.
+_MIN_OUTPUT_TOKENS = 2048
 
+
+def _build_client(api_key: str):
     try:
         from google import genai
     except ImportError as exc:
@@ -47,7 +48,16 @@ def get_vertex_client():
             "google-genai não está instalado. Executa: pip install google-genai"
         ) from exc
 
-    return genai.Client(vertexai=True, api_key=VERTEX_EXPRESS_API_KEY)
+    if GEMINI_USE_VERTEX:
+        return genai.Client(vertexai=True, api_key=api_key)
+    return genai.Client(api_key=api_key)
+
+
+@lru_cache(maxsize=1)
+def get_vertex_client():
+    if not VERTEX_EXPRESS_API_KEY:
+        raise GeminiError("VERTEX_EXPRESS_API_KEY não configurada.")
+    return _build_client(VERTEX_EXPRESS_API_KEY)
 
 
 def generate_json(
@@ -76,12 +86,19 @@ def generate_json(
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=temperature,
-                max_output_tokens=max_output_tokens,
+                # Os modelos "flash" recentes raciocinam antes de responder e
+                # esses tokens contam para o limite, pelo que um valor apertado
+                # devolvia JSON truncado a meio. Damos margem para o raciocínio
+                # (desativá-lo não é aceite por estes modelos).
+                max_output_tokens=max(max_output_tokens, _MIN_OUTPUT_TOKENS),
             ),
         )
         raw = (response.text or "").strip()
         if not raw:
-            raise GeminiError("Gemini devolveu uma resposta vazia.")
+            raise GeminiError(
+                "Gemini devolveu uma resposta vazia "
+                f"(finish_reason={getattr(response.candidates[0], 'finish_reason', '?') if response.candidates else '?'})."
+            )
         return json.loads(raw), raw
     except GeminiError:
         raise
@@ -135,11 +152,7 @@ class VertexExpressImageProvider(SyncProvider):
         if not self._api_key:
             raise GeminiError("VERTEX_EXPRESS_API_KEY não configurada.")
         if self._client is None:
-            try:
-                from google import genai
-            except ImportError as exc:
-                raise GeminiError("google-genai não está instalado.") from exc
-            self._client = genai.Client(vertexai=True, api_key=self._api_key)
+            self._client = _build_client(self._api_key)
         return self._client
 
     def generate(self, step: Step, config: RunnableConfig | None = None) -> Step:
