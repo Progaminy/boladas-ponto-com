@@ -481,11 +481,12 @@ def create_post(post_id: str, user_id: str, business_id: str | None, data: PostI
     return now
 
 
-def update_status(post_id: str, status: PostStatus, error: str | None = None) -> None:
+def update_status(post_id: str, status: PostStatus | str, error: str | None = None) -> None:
+    val = status.value if hasattr(status, "value") else str(status)
     with get_conn() as conn:
         conn.execute(
             "UPDATE posts SET status = ?, error = ?, updated_at = ? WHERE post_id = ?",
-            (status.value, error, _now(), post_id),
+            (val, error, _now(), post_id),
         )
 
 

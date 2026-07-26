@@ -29,7 +29,7 @@ if (form) {
             ? "Post criado e guardado no Backblaze B2 — sem imagem gerada (o texto está lá). A redirecionar..."
             : "Post gerado e armazenado no Backblaze B2 com sucesso. A redirecionar..."
         );
-        window.location.href = `/posts/${data.post_id}`;
+        window.location.href = `/perfil?tab=produtos&created=${data.post_id}#produtos`;
       } else {
         setBanner("failed", `Falhou: ${data.error || "erro desconhecido"}`);
         submitBtn.disabled = false;

@@ -13,8 +13,22 @@ from app.templating import templates
 router = APIRouter()
 
 
+@router.get("/perfil", response_class=HTMLResponse)
+def my_profile_redirect(request: Request):
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+    tab = request.query_params.get("tab") or "produtos"
+    created = request.query_params.get("created")
+    url = f"/utilizador/{user['user_id']}?tab={tab}"
+    if created:
+        url += f"&created={created}"
+    return RedirectResponse(url, status_code=303)
+
+
 @router.get("/utilizador/{user_id}", response_class=HTMLResponse)
 def user_profile(request: Request, user_id: str):
+    current_user = get_current_user(request)
     profile_user = db.get_user_by_id(user_id)
     if profile_user is None:
         return templates.TemplateResponse(
@@ -22,11 +36,45 @@ def user_profile(request: Request, user_id: str):
             status_code=404,
         )
 
-    posts = db.list_public_individual_posts_by_user(user_id)
+    is_owner = bool(current_user and current_user["user_id"] == user_id)
+    active_tab = request.query_params.get("tab") or "produtos"
+    created_id = request.query_params.get("created")
+
+    if is_owner:
+        posts = db.list_posts_by_user(user_id)
+        raw_txs = db.list_transactions_for_user(user_id)
+        transactions = []
+        for tx in raw_txs:
+            tx_post = db.get_post(tx["post_id"])
+            other_id = tx["seller_id"] if tx["buyer_id"] == user_id else tx["buyer_id"]
+            other_u = db.get_user_by_id(other_id)
+            transactions.append({
+                "tx": tx,
+                "post": tx_post,
+                "role": "buyer" if tx["buyer_id"] == user_id else "seller",
+                "other_user": other_u,
+            })
+    else:
+        posts = db.list_public_individual_posts_by_user(user_id)
+        transactions = []
+
     businesses = db.list_businesses_by_user(user_id)
+
+    from app.currencies import list_currencies, list_phone_prefixes
+
     return templates.TemplateResponse(
         request, "user_profile.html",
-        {"profile_user": profile_user, "posts": posts, "businesses": businesses},
+        {
+            "profile_user": profile_user,
+            "is_owner": is_owner,
+            "posts": posts,
+            "businesses": businesses,
+            "transactions": transactions,
+            "active_tab": active_tab,
+            "created_id": created_id,
+            "currencies": list_currencies(),
+            "phone_prefixes": list_phone_prefixes(),
+        },
     )
 
 

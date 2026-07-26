@@ -3,96 +3,435 @@
 {% block content %}
 
 {% if profile_user is none %}
-  <h1>Utilizador não encontrado</h1>
+  <div style="text-align: center; padding: 4rem 1rem;">
+    <h1>Utilizador não encontrado</h1>
+    <p class="muted">O perfil que procuras não existe ou foi removido.</p>
+    <a href="/explorar" class="btn-primary">Voltar ao Feed</a>
+  </div>
 {% else %}
-  <div class="profile-festive-wrapper theme-{{ profile_user['seasonal_theme'] or 'padrao' }}">
-    {% if profile_user['seasonal_theme'] and profile_user['seasonal_theme'] != 'padrao' %}
-      <div class="festive-banner">
-        🎉 ✨ Perfil em Celebração: <strong>{{ profile_user['seasonal_theme'] | replace('_', ' ') | title }}</strong> ✨ 🎉
-      </div>
-    {% endif %}
 
-    {% if profile_user['cover_photo_url'] %}
-      <img src="{{ profile_user['cover_photo_url'] }}" alt="capa" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; margin-bottom:-3rem;" />
-    {% endif %}
+<div class="profile-hub-wrapper theme-{{ profile_user['seasonal_theme'] or 'padrao' }}">
 
-    <div class="card">
-      {% if profile_user['profile_photo_url'] %}
-        <img src="{{ profile_user['profile_photo_url'] }}" alt="{{ profile_user['display_name'] }}" style="width:96px; height:96px; border-radius:50%; object-fit:cover;" />
-      {% endif %}
-      <h1>{{ profile_user['display_name'] }}</h1>
+  {% if profile_user['seasonal_theme'] and profile_user['seasonal_theme'] != 'padrao' %}
+    <div class="festive-banner" style="background: linear-gradient(90deg, #7C3AED, #EC4899); color: white; text-align: center; padding: 0.6rem; font-weight: 700; border-radius: 8px; margin-bottom: 1rem;">
+      🎉 ✨ Perfil em Celebração: <strong>{{ profile_user['seasonal_theme'] | replace('_', ' ') | title }}</strong> ✨ 🎉
+    </div>
+  {% endif %}
 
-      {% if current_user and current_user['user_id'] == profile_user['user_id'] %}
-        <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; align-items:center;">
-          <a href="/perfil/fotos">📷 Alterar fotos (Galeria) →</a>
-
-          <!-- Seletor de Época / Tema Festivo -->
-          <form method="post" action="/perfil/tema" style="display:inline-flex; align-items:center; gap:0.5rem;">
-            <label for="theme-select" style="margin:0; font-size:0.85rem;"><strong>Época/Festividade:</strong></label>
-            <select id="theme-select" name="theme" onchange="this.form.submit()" style="width:auto; padding:0.3rem;">
-              <option value="padrao" {% if profile_user['seasonal_theme'] == 'padrao' or not profile_user['seasonal_theme'] %}selected{% endif %}>Padrão</option>
-              <option value="natal" {% if profile_user['seasonal_theme'] == 'natal' %}selected{% endif %}>🎄 Natal</option>
-              <option value="ano_novo" {% if profile_user['seasonal_theme'] == 'ano_novo' %}selected{% endif %}>🎆 Ano Novo</option>
-              <option value="pascoa" {% if profile_user['seasonal_theme'] == 'pascoa' %}selected{% endif %}>🐰 Páscoa</option>
-              <option value="mulher_mz" {% if profile_user['seasonal_theme'] == 'mulher_mz' %}selected{% endif %}>🌺 Dia da Mulher Moçambicana (7 de Abril)</option>
-              <option value="festas_empresa" {% if profile_user['seasonal_theme'] == 'festas_empresa' %}selected{% endif %}>🥳 Festas da Empresa / Confraternização</option>
-            </select>
-          </form>
-        </div>
-
-        <details style="margin-bottom:1rem; background:#1F2937; padding:0.8rem; border-radius:8px;">
-          <summary style="cursor:pointer; color:#A78BFA; font-weight:bold;">🤖 Pedir à IA para Gerar/Editar Avatar ou Foto de Capa</summary>
-          <div style="margin-top:0.8rem;">
-            <div class="field">
-              <label for="ai-asset-type">Tipo</label>
-              <select id="ai-asset-type">
-                <option value="avatar">Avatar / Foto de Perfil</option>
-                <option value="cover">Foto de Capa</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="ai-prompt-details">Instruções de estilo / edição para a IA</label>
-              <input type="text" id="ai-prompt-details" placeholder="Ex: Avatar estilo profissional futurista com fundo azul" />
-            </div>
-            <button type="button" onclick="generateAiAsset()" style="background:#7C3AED;">Gerar Foto com IA</button>
-            <span id="ai-gen-status" style="margin-left:0.5rem; font-size:0.85rem;"></span>
-          </div>
-        </details>
-      {% endif %}
-
-      {% if businesses %}
-        <h2>Empresas</h2>
-        <div class="history-grid">
-          {% for b in businesses %}
-          <a href="/negocio/{{ b['business_id'] }}" style="text-decoration:none; color:inherit;">
-            <div class="card" style="padding:0.6rem;">
-              {% if b['profile_photo_url'] %}<img src="{{ b['profile_photo_url'] }}" alt="{{ b['name'] }}" />{% endif %}
-              <p style="margin:0.5rem 0 0; font-weight:600;">{{ b['name'] }}</p>
-            </div>
-          </a>
-          {% endfor %}
-        </div>
-      {% endif %}
-
-      <h2>Vendas pessoais</h2>
-      {% if not posts %}
-        <p class="muted">Ainda não tem posts pessoais publicados.</p>
+  <!-- BANNER DE CAPA & CABEÇALHO DO PERFIL -->
+  <div class="profile-hero-card" style="background: #171A21; border: 1px solid #2D3748; border-radius: 16px; overflow: hidden; margin-bottom: 1.5rem; position: relative;">
+    <div class="cover-image-container" style="height: 180px; background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); position: relative;">
+      {% if profile_user['cover_photo_url'] %}
+        <img src="{{ profile_user['cover_photo_url'] }}" alt="capa" style="width: 100%; height: 100%; object-fit: cover;" />
       {% else %}
-        <div class="history-grid">
-          {% for row in posts %}
-          <a href="/posts/{{ row['post_id'] }}" style="text-decoration:none; color:inherit;">
-            <div class="card" style="padding:0.6rem;">
-              {% if row['image_url'] %}<img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" />{% endif %}
-              <p style="margin:0.5rem 0 0; font-weight:600;">{{ row['theme'] }}</p>
-              {% if row['price_mt'] %}<p class="muted" style="margin:0;">{{ row['price_mt'] | preco_mt }}</p>{% endif %}
+        <div style="position: absolute; inset: 0; background: radial-gradient(circle at 30% 30%, rgba(99, 102, 241, 0.25), transparent 70%);"></div>
+      {% endif %}
+    </div>
+
+    <div class="profile-hero-info" style="padding: 1.2rem 1.5rem; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1.2rem; margin-top: -3.5rem; position: relative; z-index: 2;">
+      <div style="display: flex; align-items: flex-end; gap: 1.2rem; flex-wrap: wrap;">
+        <div style="width: 100px; height: 100px; border-radius: 50%; border: 4px solid #171A21; overflow: hidden; background: #374151; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+          {% if profile_user['profile_photo_url'] %}
+            <img src="{{ profile_user['profile_photo_url'] }}" alt="{{ profile_user['display_name'] }}" style="width: 100%; height: 100%; object-fit: cover;" />
+          {% else %}
+            <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:2.5rem; color:#9CA3AF; font-weight:700;">
+              {{ profile_user['display_name'][0] | upper }}
             </div>
-          </a>
-          {% endfor %}
+          {% endif %}
+        </div>
+
+        <div>
+          <h1 style="margin: 0; font-size: 1.8rem; font-weight: 800; color: #F9FAFB; display: flex; align-items: center; gap: 0.5rem;">
+            {{ profile_user['display_name'] }}
+            {% if is_owner %}
+              <span style="font-size: 0.75rem; background: #2563EB; color: white; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600;">O Meu Perfil</span>
+            {% endif %}
+          </h1>
+          <p class="muted" style="margin: 0.2rem 0 0 0; font-size: 0.9rem; display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
+            {% if profile_user['phone'] %}<span>📱 {{ profile_user['phone'] }}</span>{% endif %}
+            {% if profile_user['email'] %}<span>📧 {{ profile_user['email'] }}</span>{% endif %}
+            <span style="background: #374151; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+              🔑 Provider: {{ profile_user['auth_provider'] | upper if profile_user['auth_provider'] else 'EMAIL' }}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {% if is_owner %}
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+          <a href="/criar" class="btn-primary" style="padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 700; text-decoration: none;">➕ Anunciar Produto</a>
+          <a href="/registar/empresa" class="btn-secondary" style="padding: 0.6rem 1rem; border-radius: 8px; font-weight: 600; text-decoration: none; background: #374151; color: white;">🏢 Registar Empresa</a>
         </div>
       {% endif %}
     </div>
   </div>
-{% endif %}
+
+  <!-- NOTIFICAÇÃO DE PRODUTO CRIADO RECENTEMENTE -->
+  {% if created_id %}
+    <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10B981; color: #34D399; padding: 1rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+      <div>
+        <strong style="font-size: 1.05rem;">🎉 Anúncio Publicado com Sucesso!</strong>
+        <p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #A7F3D0;">O teu produto foi armazenado e já se encontra listado no teu perfil e no feed público.</p>
+      </div>
+      <a href="/posts/{{ created_id }}/fatura.pdf" class="btn-primary" style="background: #10B981; color: #064E3B; font-weight: 700; padding: 0.5rem 1rem; text-decoration: none; border-radius: 6px; white-space: nowrap;">📄 Baixar Comprovativo PDF</a>
+    </div>
+  {% endif %}
+
+  <!-- ABAS DE NAVEGAÇÃO INTERNACIONAL DO HUB -->
+  <div class="profile-tabs-bar" style="display: flex; gap: 0.4rem; border-bottom: 2px solid #2D3748; margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 0.2rem;">
+    <a href="?tab=produtos#produtos" class="tab-btn {% if active_tab == 'produtos' %}active{% endif %}" style="padding: 0.75rem 1.2rem; font-weight: 700; text-decoration: none; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; color: {% if active_tab == 'produtos' %}#60A5FA; background: #1E293B; border-bottom: 3px solid #3B82F6;{% else %}#9CA3AF;{% endif %}">
+      📦 Os Meus Produtos ({{ posts | length }})
+    </a>
+    <a href="?tab=empresas#empresas" class="tab-btn {% if active_tab == 'empresas' %}active{% endif %}" style="padding: 0.75rem 1.2rem; font-weight: 700; text-decoration: none; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; color: {% if active_tab == 'empresas' %}#60A5FA; background: #1E293B; border-bottom: 3px solid #3B82F6;{% else %}#9CA3AF;{% endif %}">
+      🏢 Empresas ({{ businesses | length }})
+    </a>
+    {% if is_owner %}
+    <a href="?tab=clientes#clientes" class="tab-btn {% if active_tab == 'clientes' %}active{% endif %}" style="padding: 0.75rem 1.2rem; font-weight: 700; text-decoration: none; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; color: {% if active_tab == 'clientes' %}#60A5FA; background: #1E293B; border-bottom: 3px solid #3B82F6;{% else %}#9CA3AF;{% endif %}">
+      📋 Clientes & Pedidos ({{ transactions | length }})
+    </a>
+    <a href="?tab=faturas#faturas" class="tab-btn {% if active_tab == 'faturas' %}active{% endif %}" style="padding: 0.75rem 1.2rem; font-weight: 700; text-decoration: none; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; color: {% if active_tab == 'faturas' %}#60A5FA; background: #1E293B; border-bottom: 3px solid #3B82F6;{% else %}#9CA3AF;{% endif %}">
+      📄 Faturas Eletrónicas PDF
+    </a>
+    <a href="?tab=midia#midia" class="tab-btn {% if active_tab == 'midia' %}active{% endif %}" style="padding: 0.75rem 1.2rem; font-weight: 700; text-decoration: none; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; color: {% if active_tab == 'midia' %}#60A5FA; background: #1E293B; border-bottom: 3px solid #3B82F6;{% else %}#9CA3AF;{% endif %}">
+      🖼️ Fotos & Personalização
+    </a>
+    <a href="?tab=configuracoes#configuracoes" class="tab-btn {% if active_tab == 'configuracoes' %}active{% endif %}" style="padding: 0.75rem 1.2rem; font-weight: 700; text-decoration: none; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; color: {% if active_tab == 'configuracoes' %}#60A5FA; background: #1E293B; border-bottom: 3px solid #3B82F6;{% else %}#9CA3AF;{% endif %}">
+      ⚙️ Definições & Moeda
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- CONTEÚDO DAS ABAS -->
+
+  <!-- ABA 1: PRODUTOS DO UTILIZADOR -->
+  {% if active_tab == 'produtos' %}
+    <div id="produtos-tab">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 style="margin: 0; font-size: 1.3rem;">📦 Os Meus Produtos & Anúncios</h2>
+        {% if is_owner %}<a href="/criar" class="btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; text-decoration: none;">+ Adicionar Produto</a>{% endif %}
+      </div>
+
+      {% if not posts %}
+        <div class="card" style="text-align: center; padding: 3rem 1rem;">
+          <p class="muted" style="font-size: 1.1rem;">Ainda não tens produtos publicados no teu perfil.</p>
+          {% if is_owner %}
+            <a href="/criar" class="btn-primary" style="display: inline-block; margin-top: 0.5rem;">Publicar o Teu Primeiro Anúncio</a>
+          {% endif %}
+        </div>
+      {% else %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.2rem;">
+          {% for row in posts %}
+            <div class="card" style="background: #171A21; border: 1px solid #2D3748; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+
+              <!-- BADGE DE ESTADO (ATIVO / PENDENTE / VENDIDO) -->
+              <div style="position: absolute; top: 10px; right: 10px; z-index: 5;">
+                {% if row['status'] == 'vendido' %}
+                  <span style="background: #EF4444; color: white; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">🏁 VENDIDO</span>
+                {% elif row['status'] == 'pendente' %}
+                  <span style="background: #F59E0B; color: #78350F; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">🟡 PENDENTE</span>
+                {% else %}
+                  <span style="background: #10B981; color: #064E3B; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">🟢 ATIVO</span>
+                {% endif %}
+              </div>
+
+              {% if row['image_url'] %}
+                <a href="/posts/{{ row['post_id'] }}"><img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" style="width: 100%; height: 180px; object-fit: cover;" /></a>
+              {% else %}
+                <div style="height: 140px; background: #2D3748; display: flex; align-items: center; justify-content: center; color: #9CA3AF;">Sem Imagem</div>
+              {% endif %}
+
+              <div style="padding: 1rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                  <h3 style="margin: 0 0 0.4rem 0; font-size: 1.1rem;"><a href="/posts/{{ row['post_id'] }}" style="color: #F9FAFB; text-decoration: none;">{{ row['theme'] }}</a></h3>
+                  <p class="muted" style="margin: 0; font-size: 0.85rem; height: 2.4rem; overflow: hidden; text-overflow: ellipsis;">{{ row['caption_txt'] or row['business'] }}</p>
+                  <p style="margin: 0.6rem 0; font-size: 1.2rem; font-weight: 800; color: #60A5FA;">
+                    {{ row['price_mt'] | format_price(row['currency'] or 'MZN') }}
+                  </p>
+                </div>
+
+                {% if is_owner %}
+                  <!-- PAINEL DE CONTROLO DO PRODUTO (MARCAR COMO PENDENTE / VENDIDO / FATURA / ELIMINAR) -->
+                  <div style="margin-top: 0.8rem; border-top: 1px solid #2D3748; padding-top: 0.8rem;">
+                    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+                      {% if row['status'] != 'pendente' %}
+                        <form method="post" action="/posts/{{ row['post_id'] }}/estado" style="display: inline;">
+                          <input type="hidden" name="new_status" value="pendente" />
+                          <button type="submit" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #D97706; color: white; border: none; border-radius: 4px; cursor: pointer;">🟡 Pendente</button>
+                        </form>
+                      {% endif %}
+                      {% if row['status'] != 'ativo' %}
+                        <form method="post" action="/posts/{{ row['post_id'] }}/estado" style="display: inline;">
+                          <input type="hidden" name="new_status" value="ativo" />
+                          <button type="submit" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #059669; color: white; border: none; border-radius: 4px; cursor: pointer;">🟢 Reativar</button>
+                        </form>
+                      {% endif %}
+                      {% if row['status'] != 'vendido' %}
+                        <form method="post" action="/posts/{{ row['post_id'] }}/estado" style="display: inline;">
+                          <input type="hidden" name="new_status" value="vendido" />
+                          <button type="submit" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #DC2626; color: white; border: none; border-radius: 4px; cursor: pointer;">🏁 Vendido</button>
+                        </form>
+                      {% endif %}
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <a href="/posts/{{ row['post_id'] }}/fatura.pdf" style="color: #34D399; font-size: 0.8rem; font-weight: 600; text-decoration: none;">📄 Fatura PDF</a>
+                      <form method="post" action="/posts/{{ row['post_id'] }}/eliminar" onsubmit="return confirm('Eliminar este post definitivamente?');" style="display: inline;">
+                        <button type="submit" style="background: none; border: none; color: #F87171; font-size: 0.8rem; cursor: pointer;">🗑️ Eliminar</button>
+                      </form>
+                    </div>
+                  </div>
+                {% endif %}
+              </div>
+
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <!-- ABA 2: AS MINHAS EMPRESAS -->
+  {% if active_tab == 'empresas' %}
+    <div id="empresas-tab">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 style="margin: 0; font-size: 1.3rem;">🏢 As Minhas Empresas Registadas</h2>
+        {% if is_owner %}<a href="/registar/empresa" class="btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; text-decoration: none;">+ Criar Empresa</a>{% endif %}
+      </div>
+
+      {% if not businesses %}
+        <div class="card" style="text-align: center; padding: 3rem 1rem;">
+          <p class="muted">Ainda não registaste nenhuma empresa ou loja neste perfil.</p>
+          {% if is_owner %}
+            <a href="/registar/empresa" class="btn-primary" style="display: inline-block; margin-top: 0.5rem;">Registar Farmácia, Ferragem, Loja ou Empresa</a>
+          {% endif %}
+        </div>
+      {% else %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.2rem;">
+          {% for b in businesses %}
+            <div class="card" style="background: #171A21; border: 1px solid #2D3748; border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.8rem;">
+                  <div style="width: 50px; height: 50px; border-radius: 10px; background: #374151; overflow: hidden; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white;">
+                    {% if b['profile_photo_url'] %}
+                      <img src="{{ b['profile_photo_url'] }}" alt="{{ b['name'] }}" style="width:100%; height:100%; object-fit:cover;" />
+                    {% else %}
+                      {{ b['name'][0] | upper }}
+                    {% endif %}
+                  </div>
+                  <div>
+                    <h3 style="margin:0; font-size:1.05rem;"><a href="/negocio/{{ b['business_id'] }}" style="color:#F9FAFB; text-decoration:none;">{{ b['name'] }}</a></h3>
+                    <span style="font-size:0.75rem; background:#374151; color:#9CA3AF; padding:0.1rem 0.4rem; border-radius:4px;">{{ b['category'] | upper }}</span>
+                  </div>
+                </div>
+                {% if b['location'] %}<p class="muted" style="margin:0 0 0.4rem 0; font-size:0.85rem;">📍 {{ b['location'] }}</p>{% endif %}
+                {% if b['contact'] %}<p class="muted" style="margin:0; font-size:0.85rem;">📞 {{ b['contact'] }}</p>{% endif %}
+              </div>
+
+              {% if is_owner %}
+                <div style="margin-top: 1rem; border-top: 1px solid #2D3748; padding-top: 0.8rem; display: flex; justify-content: space-between;">
+                  <a href="/negocio/{{ b['business_id'] }}" style="color:#60A5FA; font-size:0.85rem; text-decoration:none; font-weight:600;">Ver Perfil →</a>
+                  <a href="/empresa/{{ b['business_id'] }}/fotos" style="color:#9CA3AF; font-size:0.85rem; text-decoration:none;">📸 Alterar Fotos</a>
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <!-- ABA 3: CLIENTES PENDENTES & ENCOMENDAS -->
+  {% if active_tab == 'clientes' and is_owner %}
+    <div id="clientes-tab">
+      <h2 style="margin: 0 0 1rem 0; font-size: 1.3rem;">📋 Clientes Pendentes & Encomendas</h2>
+
+      {% if not transactions %}
+        <div class="card" style="text-align: center; padding: 3rem 1rem;">
+          <p class="muted">Não tens nenhuma encomenda ou cliente pendente neste momento.</p>
+        </div>
+      {% else %}
+        <div class="table-responsive" style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; background: #171A21; border-radius: 8px; border: 1px solid #2D3748;">
+            <thead>
+              <tr style="background: #1E293B; border-bottom: 1px solid #374151; color: #9CA3AF; font-size: 0.85rem;">
+                <th style="padding: 0.8rem;">ID / Data</th>
+                <th style="padding: 0.8rem;">Produto / Anúncio</th>
+                <th style="padding: 0.8rem;">Cliente / Outra Parte</th>
+                <th style="padding: 0.8rem;">Papel</th>
+                <th style="padding: 0.8rem;">Estado</th>
+                <th style="padding: 0.8rem;">Ação / Fatura</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in transactions %}
+                <tr style="border-bottom: 1px solid #2D3748;">
+                  <td style="padding: 0.8rem; font-size: 0.85rem;">
+                    <strong><a href="/transacoes/{{ item.tx['transaction_id'] }}" style="color: #60A5FA;">#{{ item.tx['transaction_id'][:8] }}</a></strong><br/>
+                    <span class="muted" style="font-size: 0.75rem;">{{ item.tx['created_at'][:10] if item.tx['created_at'] else '' }}</span>
+                  </td>
+                  <td style="padding: 0.8rem;">
+                    {% if item.post %}
+                      <a href="/posts/{{ item.post['post_id'] }}" style="color: #F9FAFB; font-weight: 600; text-decoration: none;">{{ item.post['theme'] }}</a><br/>
+                      <span style="color: #34D399; font-size: 0.85rem;">{{ item.post['price_mt'] | format_price(item.post['currency'] or 'MZN') }}</span>
+                    {% else %}
+                      <span class="muted">Post Removido</span>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 0.8rem;">
+                    {% if item.other_user %}
+                      <strong>{{ item.other_user['display_name'] }}</strong><br/>
+                      <span class="muted" style="font-size: 0.8rem;">{{ item.other_user['phone'] or item.other_user['email'] or 'Sem contacto' }}</span>
+                    {% else %}
+                      <span class="muted">Utilizador Geral</span>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 0.8rem; font-size: 0.85rem;">
+                    {% if item.role == 'seller' %}<span style="color: #F59E0B; font-weight: 700;">VENDEDOR</span>{% else %}<span style="color: #3B82F6; font-weight: 700;">COMPRADOR</span>{% endif %}
+                  </td>
+                  <td style="padding: 0.8rem;">
+                    <span style="font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 4px; background: {% if item.tx['status'] == 'recebido' %}#059669{% elif item.tx['status'] == 'vendido' %}#2563EB{% else %}#D97706{% endif %}; color: white;">
+                      {{ item.tx['status'] | upper }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.8rem;">
+                    <a href="/transacoes/{{ item.tx['transaction_id'] }}/fatura.pdf" class="btn-secondary" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; text-decoration: none;">📄 Baixar PDF</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <!-- ABA 4: FATURAS ELETRÓNICAS PDF -->
+  {% if active_tab == 'faturas' and is_owner %}
+    <div id="faturas-tab">
+      <h2 style="margin: 0 0 1rem 0; font-size: 1.3rem;">📄 Faturas Eletrónicas & Recibos Oficiais em PDF</h2>
+      <p class="subtitle">Documentos com padrão fiscal internacional, QR Code e validação de proveniência Backblaze B2.</p>
+
+      {% if not transactions and not posts %}
+        <div class="card" style="text-align: center; padding: 3rem 1rem;">
+          <p class="muted">Ainda não tens faturas geradas. Publica um produto para emitir o teu primeiro recibo PDF.</p>
+        </div>
+      {% else %}
+        <div class="table-responsive" style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; background: #171A21; border-radius: 8px; border: 1px solid #2D3748;">
+            <thead>
+              <tr style="background: #1E293B; border-bottom: 1px solid #374151; color: #9CA3AF; font-size: 0.85rem;">
+                <th style="padding: 0.8rem;">Nº da Fatura</th>
+                <th style="padding: 0.8rem;">Descrição do Item</th>
+                <th style="padding: 0.8rem;">Valor & Moeda</th>
+                <th style="padding: 0.8rem;">Segurança / Proveniência</th>
+                <th style="padding: 0.8rem;">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in posts %}
+                <tr style="border-bottom: 1px solid #2D3748;">
+                  <td style="padding: 0.8rem; font-family: monospace; font-weight: 700; color: #60A5FA;">PROD-{{ row['post_id'][:8] | upper }}</td>
+                  <td style="padding: 0.8rem; font-weight: 600;">{{ row['theme'] }}</td>
+                  <td style="padding: 0.8rem; font-weight: 700; color: #34D399;">{{ row['price_mt'] | format_price(row['currency'] or 'MZN') }}</td>
+                  <td style="padding: 0.8rem; font-size: 0.75rem; color: #9CA3AF;">
+                    {% if row['b2_image_key'] %}🟢 B2 Provenance Validated{% else %}⚪ Registado localmente{% endif %}
+                  </td>
+                  <td style="padding: 0.8rem;">
+                    <a href="/posts/{{ row['post_id'] }}/fatura.pdf" class="btn-primary" style="padding: 0.3rem 0.7rem; font-size: 0.8rem; text-decoration: none;">📄 Baixar Fatura PDF</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <!-- ABA 5: FOTOS & PERSONALIZAÇÃO (AVATAR E CAPA) -->
+  {% if active_tab == 'midia' and is_owner %}
+    <div id="midia-tab">
+      <h2 style="margin: 0 0 1rem 0; font-size: 1.3rem;">🖼️ Fotos de Perfil, Capa & Tema Festivo</h2>
+
+      <div class="card" style="background: #171A21; border: 1px solid #2D3748; margin-bottom: 1.5rem; padding: 1.2rem;">
+        <h3>📸 Carregar Foto de Perfil / Banner de Capa</h3>
+        <form method="post" action="/perfil/fotos" enctype="multipart/form-data">
+          <div class="field">
+            <label for="profile_photo">Foto de Perfil (Avatar)</label>
+            <input type="file" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/webp" />
+          </div>
+          <div class="field">
+            <label for="cover_photo">Foto de Capa (Banner superior)</label>
+            <input type="file" id="cover_photo" name="cover_photo" accept="image/jpeg,image/png,image/webp" />
+          </div>
+          <button type="submit" class="btn-primary">Guardar Fotos</button>
+        </form>
+      </div>
+
+      <!-- GERADOR DE ASSETS IA -->
+      <div class="card" style="background: #1F2937; border: 1px solid #7C3AED; padding: 1.2rem; border-radius: 12px; margin-bottom: 1.5rem;">
+        <h3 style="color: #A78BFA; margin-top: 0;">🤖 Gerador de Fotos de Perfil / Capa com IA</h3>
+        <p class="subtitle" style="color: #D1D5DB;">Escreve o estilo desejado e a IA criará uma foto exclusiva guardada no Backblaze B2.</p>
+        <div class="field">
+          <label for="ai-asset-type">Tipo de Asset</label>
+          <select id="ai-asset-type" style="background: #111827; color: white;">
+            <option value="avatar">Avatar / Foto de Perfil</option>
+            <option value="cover">Foto de Capa</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="ai-prompt-details">Descrição visual para a IA</label>
+          <input type="text" id="ai-prompt-details" placeholder="Ex: Avatar profissional futurista com fundo azul tecnológico" style="background: #111827; color: white;" />
+        </div>
+        <button type="button" onclick="generateAiAsset()" style="background: #7C3AED; color: white; border: none; padding: 0.6rem 1.2rem; font-weight: 700; border-radius: 6px; cursor: pointer;">Gerar com IA</button>
+        <span id="ai-gen-status" style="margin-left: 0.5rem; font-size: 0.85rem; color: #A78BFA;"></span>
+      </div>
+
+      <!-- SELETOR DE ÉPOCA / FESTIVIDADE -->
+      <div class="card" style="background: #171A21; border: 1px solid #2D3748; padding: 1.2rem;">
+        <h3>🎉 Tema Festivo / Época do Perfil</h3>
+        <form method="post" action="/perfil/tema" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+          <select name="theme" onchange="this.form.submit()" style="background: #111827; color: white; padding: 0.5rem; border-radius: 6px; flex: 1; min-width: 200px;">
+            <option value="padrao" {% if profile_user['seasonal_theme'] == 'padrao' or not profile_user['seasonal_theme'] %}selected{% endif %}>Padrão</option>
+            <option value="natal" {% if profile_user['seasonal_theme'] == 'natal' %}selected{% endif %}>🎄 Natal</option>
+            <option value="ano_novo" {% if profile_user['seasonal_theme'] == 'ano_novo' %}selected{% endif %}>🎆 Ano Novo</option>
+            <option value="pascoa" {% if profile_user['seasonal_theme'] == 'pascoa' %}selected{% endif %}>🐰 Páscoa</option>
+            <option value="mulher_mz" {% if profile_user['seasonal_theme'] == 'mulher_mz' %}selected{% endif %}>🌺 Dia da Mulher Moçambicana (7 de Abril)</option>
+            <option value="festas_empresa" {% if profile_user['seasonal_theme'] == 'festas_empresa' %}selected{% endif %}>🥳 Festas da Empresa / Confraternização</option>
+          </select>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- ABA 6: CONFIGURAÇÕES & SEGURANÇA -->
+  {% if active_tab == 'configuracoes' and is_owner %}
+    <div id="configuracoes-tab">
+      <h2 style="margin: 0 0 1rem 0; font-size: 1.3rem;">⚙️ Definições da Conta & Preferências da Plataforma</h2>
+
+      <div class="card" style="background: #171A21; border: 1px solid #2D3748; padding: 1.5rem; border-radius: 12px; max-width: 600px;">
+        <h3>🔒 Informações da Conta</h3>
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #9CA3AF; font-size: 0.85rem;">Nome de Exibição</label>
+          <p style="margin: 0.2rem 0; font-size: 1.1rem; font-weight: 700; color: white;">{{ profile_user['display_name'] }}</p>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #9CA3AF; font-size: 0.85rem;">Email Associado</label>
+          <p style="margin: 0.2rem 0; font-size: 1rem; color: white;">{{ profile_user['email'] or 'Não especificado' }}</p>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #9CA3AF; font-size: 0.85rem;">Telefone com Prefixo</label>
+          <p style="margin: 0.2rem 0; font-size: 1rem; color: white;">{{ profile_user['phone'] or 'Não especificado' }}</p>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #9CA3AF; font-size: 0.85rem;">Método de Autenticação Ativo</label>
+          <p style="margin: 0.2rem 0; font-size: 1rem; color: #60A5FA; font-weight: 700;">{{ profile_user['auth_provider'] | upper if profile_user['auth_provider'] else 'EMAIL' }}</p>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
 
 <script>
 async function generateAiAsset() {
@@ -124,5 +463,7 @@ async function generateAiAsset() {
   }
 }
 </script>
+
+{% endif %}
 {% endblock %}
 

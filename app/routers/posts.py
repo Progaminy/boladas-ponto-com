@@ -463,9 +463,25 @@ def delete_post_endpoint(request: Request, post_id: str):
 
     try:
         db.delete_post(post_id, user["user_id"])
-        return RedirectResponse("/historico", status_code=303)
+        referer = request.headers.get("referer") or "/perfil?tab=produtos"
+        return RedirectResponse(referer, status_code=303)
     except PermissionError as exc:
         return JSONResponse({"error": str(exc)}, status_code=403)
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=404)
+
+
+@router.post("/posts/{post_id}/estado")
+def change_post_status(request: Request, post_id: str, new_status: str = Form(...)):
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
+    post = db.get_post(post_id)
+    if post is None or post["user_id"] != user["user_id"]:
+        return RedirectResponse("/perfil?tab=produtos", status_code=303)
+
+    db.update_status(post_id, new_status)
+    referer = request.headers.get("referer") or "/perfil?tab=produtos"
+    return RedirectResponse(referer, status_code=303)
 
