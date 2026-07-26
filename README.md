@@ -37,6 +37,8 @@ Isto vale para o resto da aplicação:
 - **Moderação em três camadas**: (1) lista de bloqueio de texto local, sem custo, aplicada antes de gastar qualquer crédito de geração; (2) classificação textual por IA (Vertex, com GMICloud como fallback); (3) verificação visual real de fotos e vídeo com o Gemini. Qualquer camada de IA devolve "não verificado" — nunca "limpo" — se a chamada falhar. Por baixo de tudo, qualquer utilizador pode reportar um post, ocultando-o até um admin decidir em `/admin/moderacao`.
 - **Categorias e cor da plataforma**: cor oficial roxo escuro na interface; ~29 categorias com cores coerentes por omissão (ex.: farmácia branco, eletricidade laranja, mecânica azul-escuro); qualquer categoria fora da lista é aceite tal como escrita (nunca bloqueada), e há um botão para sugerir a categoria automaticamente a partir da descrição via IA (depende de um provedor de IA disponível).
 - **Fotos de perfil/capa**: uma foto de perfil e uma de capa para a conta pessoal, e o mesmo por cada empresa registada — com perfil público em `/utilizador/<id>` e `/negocio/<id>`.
+- **Empresas com sócios**: uma empresa pode ter vários gestores, cada um com o seu próprio acesso. Todos publicam e editam; só o proprietário acrescenta ou remove gestores, e o proprietário nunca pode ser removido (uma empresa sem dono ficaria inacessível).
+- **Cadastro direto de empresa**: `/registar/empresa` cria a conta de acesso e o negócio num só passo, para quem só quer registar a loja e não uma conta pessoal.
 - **Verificação de proveniência ao vivo**: `POST /posts/<id>/verificar` (público) volta a descarregar do B2 cada ficheiro declarado no manifesto e recalcula o SHA-256, com resultado por ficheiro.
 - **Diagnóstico do sistema**: `/estado` exercita mesmo as ligações ao B2, ao Vertex e ao GMICloud e mostra o erro real do serviço quando algo falha.
 - **Interface móvel**: a maioria dos acessos em Moçambique é por telemóvel, por isso o layout é responsivo (campos empilham, navegação quebra em linhas, filtros ficam a largura total).
@@ -160,22 +162,36 @@ tests/                                  # pytest
 
 Dockerfile na raiz (usado pelo deploy no Render) instala `ffmpeg` para a validação real de vídeo.
 
-## Conta de teste para os jurados
+## Contas de exemplo
 
 Registo/login, explorar, criar posts, histórico e perfil de negócio exigem sessão. A página
 de resultado de um post e a sua proveniência (`/posts/<id>` e `/posts/<id>/provenance`) são
-públicas e partilháveis, para poderem ser verificadas sem conta. Para os jurados testarem o
-fluxo completo (criar posts, ver histórico, negócio), cria-se uma conta de demonstração após
-o deploy:
+públicas e partilháveis, para poderem ser verificadas sem conta.
+
+Para explorar a aplicação com dados realistas:
 
 ```bash
-curl -X POST https://<url-pública>/registar \
-  -d "email=jurado@boladas.test&password=<password-forte>&display_name=Jurado"
+python3 scripts/seed_exemplos.py
 ```
 
-(ou simplesmente usar o formulário em `/registar`). As credenciais finais de demonstração
-serão indicadas na submissão do Devpost, conforme exigido pelas regras oficiais do hackathon
-para aplicações com login.
+Cria cinco contas (password `boladas2026`, todas com email `@exemplo.boladas.mz`), cobrindo
+os casos de uso reais:
+
+| Conta | Situação |
+|---|---|
+| `carlota@` | vende roupa em segunda mão, **sem empresa** |
+| `jaime@` | mercado informal — empresa com **categoria escrita à mão** ("Mercado Informal") |
+| `ana@` | proprietária da Farmácia Vida Nova |
+| `rui@` | **sócio** da mesma farmácia, com acesso próprio |
+| `salomao@` | gere **duas empresas** (ferragens e padaria) |
+
+O script é idempotente (correr de novo não duplica nada) e `--limpar` remove os exemplos sem
+tocar em contas reais. Não cria posts: um post exige geração de imagem, que depende de
+créditos indisponíveis — inventar posts concluídos com imagens falsas contradiria o princípio
+"Nunca fingir".
+
+As credenciais de demonstração para os jurados serão indicadas na submissão do Devpost,
+conforme exigido pelas regras oficiais do hackathon para aplicações com login.
 
 ## Deploy (Render)
 
