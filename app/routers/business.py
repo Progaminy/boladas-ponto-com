@@ -73,7 +73,7 @@ def business_edit_form(request: Request, business_id: str):
         return RedirectResponse("/entrar", status_code=303)
 
     biz = db.get_business(business_id)
-    if biz is None or biz["user_id"] != user["user_id"]:
+    if biz is None or not db.can_manage_business(business_id, user["user_id"]):
         return RedirectResponse("/empresa", status_code=303)
 
     return templates.TemplateResponse(
@@ -98,7 +98,7 @@ def business_update(
         return RedirectResponse("/entrar", status_code=303)
 
     biz = db.get_business(business_id)
-    if biz is None or biz["user_id"] != user["user_id"]:
+    if biz is None or not db.can_manage_business(business_id, user["user_id"]):
         return RedirectResponse("/empresa", status_code=303)
 
     final_category = (category_custom or "").strip() or category
@@ -116,6 +116,65 @@ def business_update(
 
     db.update_business(business_id, data)
     return RedirectResponse(f"/negocio/{business_id}", status_code=303)
+
+
+@router.get("/empresa/{business_id}/gestores", response_class=HTMLResponse)
+def business_members_page(request: Request, business_id: str, error: str | None = None):
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
+    biz = db.get_business(business_id)
+    if biz is None or not db.can_manage_business(business_id, user["user_id"]):
+        return RedirectResponse("/empresa", status_code=303)
+
+    return templates.TemplateResponse(
+        request, "business_members.html",
+        {
+            "business": biz,
+            "members": db.list_business_members(business_id),
+            "is_owner": db.is_business_owner(business_id, user["user_id"]),
+            "error": error,
+        },
+    )
+
+
+@router.post("/empresa/{business_id}/gestores")
+def business_member_add(request: Request, business_id: str, email: str = Form(...)):
+    """Acrescenta um sócio pelo email. Só o proprietário o pode fazer, para
+    que um gestor não possa dar acesso a mais pessoas sem autorização."""
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
+    if db.get_business(business_id) is None or not db.is_business_owner(
+        business_id, user["user_id"]
+    ):
+        return RedirectResponse("/empresa", status_code=303)
+
+    convidado = db.get_user_by_email(email.strip().lower())
+    if convidado is None:
+        return RedirectResponse(
+            f"/empresa/{business_id}/gestores?error=nao-encontrado", status_code=303
+        )
+
+    db.add_business_member(business_id, convidado["user_id"], user["user_id"])
+    return RedirectResponse(f"/empresa/{business_id}/gestores", status_code=303)
+
+
+@router.post("/empresa/{business_id}/gestores/{member_id}/remover")
+def business_member_remove(request: Request, business_id: str, member_id: str):
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
+    if db.get_business(business_id) is None or not db.is_business_owner(
+        business_id, user["user_id"]
+    ):
+        return RedirectResponse("/empresa", status_code=303)
+
+    db.remove_business_member(business_id, member_id)
+    return RedirectResponse(f"/empresa/{business_id}/gestores", status_code=303)
 
 
 @router.get("/negocio/{business_id}", response_class=HTMLResponse)

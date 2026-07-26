@@ -84,6 +84,18 @@ CREATE TABLE IF NOT EXISTS businesses (
     created_at TEXT NOT NULL
 );
 
+-- Uma empresa pode ter vários gestores (sócios). O criador fica como
+-- 'proprietario'; os restantes como 'gestor'. Ambos podem publicar e editar,
+-- mas só o proprietário pode remover gestores ou apagar a empresa.
+CREATE TABLE IF NOT EXISTS business_members (
+    business_id TEXT NOT NULL REFERENCES businesses(business_id),
+    user_id TEXT NOT NULL REFERENCES users(user_id),
+    role TEXT NOT NULL DEFAULT 'gestor',
+    added_at TEXT NOT NULL,
+    added_by TEXT REFERENCES users(user_id),
+    PRIMARY KEY (business_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS posts (
     post_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(user_id),
@@ -178,6 +190,19 @@ def init_db() -> None:
         _ensure_column(
             conn, "posts", "moderation_status", "moderation_status TEXT NOT NULL DEFAULT 'approved'"
         )
+        _backfill_business_owners(conn)
+
+
+def _backfill_business_owners(conn: sqlite3.Connection) -> None:
+    """Garante que o criador de cada empresa consta como proprietário em
+    business_members. Empresas criadas antes desta funcionalidade existirem
+    ficariam sem qualquer gestor registado."""
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO business_members (business_id, user_id, role, added_at, added_by)
+        SELECT business_id, user_id, 'proprietario', created_at, user_id FROM businesses
+        """
+    )
 
 
 def _now() -> str:
@@ -214,14 +239,21 @@ def get_user_by_id(user_id: str) -> sqlite3.Row | None:
 # --- businesses --------------------------------------------------------------
 
 def create_business(business_id: str, user_id: str, data: BusinessInput) -> None:
+    now = _now()
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO businesses (business_id, user_id, name, category, description, "
             "location, contact, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 business_id, user_id, data.name, data.category, data.description,
-                data.location, data.contact, _now(),
+                data.location, data.contact, now,
             ),
+        )
+        # quem cria fica automaticamente como proprietário
+        conn.execute(
+            "INSERT OR IGNORE INTO business_members (business_id, user_id, role, added_at, "
+            "added_by) VALUES (?, ?, 'proprietario', ?, ?)",
+            (business_id, user_id, now, user_id),
         )
 
 
@@ -235,9 +267,17 @@ def update_business(business_id: str, data: BusinessInput) -> None:
 
 
 def list_businesses_by_user(user_id: str) -> list[sqlite3.Row]:
+    """Empresas que o utilizador gere — as que criou e aquelas onde foi
+    adicionado como sócio/gestor."""
     with get_conn() as conn:
         cur = conn.execute(
-            "SELECT * FROM businesses WHERE user_id = ? ORDER BY created_at ASC", (user_id,)
+            """
+            SELECT b.* FROM businesses b
+            JOIN business_members m ON m.business_id = b.business_id
+            WHERE m.user_id = ?
+            ORDER BY b.created_at ASC
+            """,
+            (user_id,),
         )
         return cur.fetchall()
 
@@ -246,6 +286,64 @@ def get_business(business_id: str) -> sqlite3.Row | None:
     with get_conn() as conn:
         cur = conn.execute("SELECT * FROM businesses WHERE business_id = ?", (business_id,))
         return cur.fetchone()
+
+
+# --- gestores da empresa (sócios) --------------------------------------------
+
+def add_business_member(
+    business_id: str, user_id: str, added_by: str, role: str = "gestor"
+) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO business_members (business_id, user_id, role, added_at, "
+            "added_by) VALUES (?, ?, ?, ?, ?)",
+            (business_id, user_id, role, _now(), added_by),
+        )
+
+
+def remove_business_member(business_id: str, user_id: str) -> None:
+    """Remove um gestor. Nunca remove o proprietário — uma empresa sem
+    proprietário ficaria órfã e inacessível."""
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM business_members WHERE business_id = ? AND user_id = ? "
+            "AND role != 'proprietario'",
+            (business_id, user_id),
+        )
+
+
+def list_business_members(business_id: str) -> list[sqlite3.Row]:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT m.*, u.display_name, u.email
+            FROM business_members m
+            JOIN users u ON u.user_id = m.user_id
+            WHERE m.business_id = ?
+            ORDER BY CASE m.role WHEN 'proprietario' THEN 0 ELSE 1 END, m.added_at ASC
+            """,
+            (business_id,),
+        )
+        return cur.fetchall()
+
+
+def get_business_role(business_id: str, user_id: str) -> str | None:
+    """Papel do utilizador nesta empresa, ou None se não for gestor."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT role FROM business_members WHERE business_id = ? AND user_id = ?",
+            (business_id, user_id),
+        )
+        row = cur.fetchone()
+        return row["role"] if row else None
+
+
+def can_manage_business(business_id: str, user_id: str) -> bool:
+    return get_business_role(business_id, user_id) is not None
+
+
+def is_business_owner(business_id: str, user_id: str) -> bool:
+    return get_business_role(business_id, user_id) == "proprietario"
 
 
 def set_user_photo(user_id: str, kind: str, key: str, url: str) -> None:

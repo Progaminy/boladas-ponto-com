@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Gestores — {{ business['name'] }}{% endblock %}
+{% block content %}
+<p><a href="/empresa/{{ business['business_id'] }}/editar">← {{ business['name'] }}</a></p>
+<h1>Gestores da empresa</h1>
+<p class="subtitle">
+  Se a empresa tem sócios, cada um pode ter acesso próprio. Todos os gestores
+  podem publicar e editar a empresa; só o proprietário pode acrescentar ou
+  remover gestores.
+</p>
+
+{% if error == 'nao-encontrado' %}
+  <div class="error-box">
+    Não existe nenhuma conta com esse email. A pessoa tem de se registar primeiro
+    em <a href="/registar">/registar</a>, e depois podes acrescentá-la aqui.
+  </div>
+{% endif %}
+
+<div class="card">
+  {% for m in members %}
+  <div class="member-row">
+    <div>
+      <strong>{{ m['display_name'] }}</strong>
+      <span class="badge">{{ m['role'] }}</span>
+      <p class="muted member-email">{{ m['email'] }}</p>
+    </div>
+    {% if is_owner and m['role'] != 'proprietario' %}
+    <form method="post" action="/empresa/{{ business['business_id'] }}/gestores/{{ m['user_id'] }}/remover">
+      <button type="submit" class="btn-danger">Remover</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% if is_owner %}
+<h2>Acrescentar sócio</h2>
+<form method="post" action="/empresa/{{ business['business_id'] }}/gestores">
+  <div class="field">
+    <label for="email">Email da conta a acrescentar</label>
+    <input type="email" id="email" name="email" required maxlength="200"
+           placeholder="socio@exemplo.co.mz" />
+    <p class="muted member-hint">A pessoa precisa de já ter conta na plataforma.</p>
+  </div>
+  <button type="submit">Acrescentar gestor</button>
+</form>
+{% else %}
+<p class="muted">És gestor desta empresa. Só o proprietário pode acrescentar ou remover gestores.</p>
+{% endif %}
+{% endblock %}

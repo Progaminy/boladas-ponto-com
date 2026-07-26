@@ -68,7 +68,7 @@ def business_photos_form(request: Request, business_id: str):
         return RedirectResponse("/entrar", status_code=303)
 
     biz = db.get_business(business_id)
-    if biz is None or biz["user_id"] != user["user_id"]:
+    if biz is None or not db.can_manage_business(business_id, user["user_id"]):
         return RedirectResponse("/empresa", status_code=303)
 
     return templates.TemplateResponse(
@@ -88,7 +88,7 @@ async def business_photos_upload(
         return RedirectResponse("/entrar", status_code=303)
 
     biz = db.get_business(business_id)
-    if biz is None or biz["user_id"] != user["user_id"]:
+    if biz is None or not db.can_manage_business(business_id, user["user_id"]):
         return RedirectResponse("/empresa", status_code=303)
 
     error = await _handle_photo_uploads(

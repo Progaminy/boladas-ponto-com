@@ -267,6 +267,21 @@ a { color: var(--accent); }
 .filter-form select, .filter-form input { flex: 1; min-width: 0; }
 .filter-form button { flex: 0 0 auto; }
 
+/* --- gestores da empresa --- */
+.member-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.member-row:last-child { border-bottom: none; }
+.member-email { margin: 0.2rem 0 0; font-size: 0.85rem; }
+.member-hint { margin: 0.2rem 0 0; font-size: 0.8rem; }
+.btn-danger { background: #5a1e1e; color: #fff; font-size: 0.85rem; padding: 0.4rem 0.8rem; }
+.btn-danger:hover { background: #7f1d1d; }
+
 /* --- navbar --- */
 .nav-user { padding-left: 0.5rem; border-left: 1px solid var(--border); }
 .nav-logout { display: inline; }
