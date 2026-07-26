@@ -137,7 +137,10 @@
               {% if row['image_url'] %}
                 <a href="/posts/{{ row['post_id'] }}"><img src="{{ row['image_url'] }}" alt="{{ row['theme'] }}" style="width: 100%; height: 180px; object-fit: cover;" /></a>
               {% else %}
-                <div style="height: 140px; background: #2D3748; display: flex; align-items: center; justify-content: center; color: #9CA3AF;">Sem Imagem</div>
+                <div style="height: 140px; background: #2D3748; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9CA3AF; gap: 0.3rem;">
+                  <span style="font-size: 1.4rem;">⏳</span>
+                  <span style="font-size: 0.78rem;">Imagem a aguardar IA</span>
+                </div>
               {% endif %}
 
               <div style="padding: 1rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">

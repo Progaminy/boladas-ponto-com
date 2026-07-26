@@ -24,10 +24,21 @@
       {% if post['image_url'] %}
         <img class="post-image" src="{{ post['image_url'] }}" alt="{{ post['theme'] }}" />
       {% else %}
-        <div class="no-image-note">
-          <p class="muted">Este post não tem imagem gerada por IA.</p>
-          {% if post['image_skipped_reason'] %}
-          <p class="muted" style="font-size:0.8rem;">Motivo real: {{ post['image_skipped_reason'][:200] }}</p>
+        {% set estado = post['image_skipped_reason'] | estado_ia %}
+        <div class="no-image-note{% if estado and estado.e_espera %} aguarda{% endif %}">
+          <p class="no-image-title">
+            {% if estado and estado.e_espera %}⏳{% else %}🖼{% endif %}
+            {{ estado.titulo if estado else 'Imagem por gerar' }}
+          </p>
+          <p class="muted">
+            {{ estado.explicacao if estado else
+               'Este anúncio ainda não tem imagem gerada por IA.' }}
+          </p>
+          {% if estado %}
+          <details class="no-image-detalhe">
+            <summary class="muted">Detalhe técnico</summary>
+            <p class="muted">{{ estado.detalhe_tecnico[:400] }}</p>
+          </details>
           {% endif %}
         </div>
       {% endif %}

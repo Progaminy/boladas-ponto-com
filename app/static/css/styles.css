@@ -295,6 +295,19 @@ a { color: var(--accent); }
 .post-description p { margin: 0; }
 .description-source { font-size: 0.75rem; margin-top: 0.4rem; }
 
+/* Um anúncio sem imagem não é uma avaria: é um anúncio à espera de uma
+   etapa opcional. Tratado como informação serena, não como alarme. */
+.no-image-note.aguarda { border-color: var(--accent); }
+.no-image-title { margin: 0 0 0.4rem; font-weight: 600; }
+.no-image-detalhe { margin-top: 0.7rem; text-align: left; }
+.no-image-detalhe summary { cursor: pointer; font-size: 0.8rem; }
+.no-image-detalhe p {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.72rem;
+  word-break: break-word;
+  margin: 0.4rem 0 0;
+}
+
 .no-image-note {
   background: var(--surface-2);
   border: 1px dashed var(--border);

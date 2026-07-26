@@ -26,7 +26,7 @@ if (form) {
         setBanner(
           "completed",
           data.image_skipped_reason
-            ? "Post criado e guardado no Backblaze B2 — sem imagem gerada (o texto está lá). A redirecionar..."
+            ? "Anúncio publicado e guardado no Backblaze B2. A imagem fica a aguardar disponibilidade da IA — o resto do anúncio está completo. A redirecionar..."
             : "Post gerado e armazenado no Backblaze B2 com sucesso. A redirecionar..."
         );
         window.location.href = `/perfil?tab=produtos&created=${data.post_id}#produtos`;

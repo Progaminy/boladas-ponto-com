@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from app.categories import list_categories
 from app.config import PLATFORM_CONTACT_NUMBER
 from app.currencies import format_price, list_currencies, list_phone_prefixes
+from app.ai_status import interpretar_falha_de_imagem
 from app.formatting import format_price_mt
 
 
@@ -26,4 +27,6 @@ templates.env.globals["phone_prefixes"] = list_phone_prefixes()
 templates.env.globals["platform_contact"] = PLATFORM_CONTACT_NUMBER
 templates.env.filters["from_json"] = lambda s: json.loads(s) if s else []
 templates.env.filters["preco_mt"] = format_price_mt
+# transforma o erro cru do provedor num estado legível (normalmente uma espera)
+templates.env.filters["estado_ia"] = interpretar_falha_de_imagem
 templates.env.filters["format_price"] = lambda price, curr="MZN": format_price(price, curr or "MZN")
