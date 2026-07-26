@@ -14,10 +14,11 @@ def build_provenance(
     post_id: str,
     status: str,
     post_input: PostInput,
-    image_result: ImageResult,
+    image_result: ImageResult | None,
     caption_result: CaptionResult,
-    image_file: UploadedFile,
+    image_file: UploadedFile | None,
     caption_file: UploadedFile,
+    image_skipped_reason: str | None = None,
     errors: list[str] | None = None,
 ) -> dict:
     return {
@@ -39,47 +40,77 @@ def build_provenance(
             "price_mt": post_input.price_mt,
             "location": post_input.location,
             "contact": post_input.contact,
+            "description": post_input.description,
+            # como a descrição foi obtida: escrita pela pessoa, gerada pela IA
+            # a partir de uma explicação, ou gerada a partir de uma fotografia.
+            "description_source": post_input.description_source,
         },
         "generation": {
-            "prompt": image_result.prompt,
-            "models": [
-                {
-                    "provider": image_result.provider,
-                    "model": image_result.model,
-                    "role": "image",
-                },
-                # o provedor da legenda vem do resultado real, não fixo: com
-                # múltiplos provedores, assumir um deles tornaria o manifesto
-                # falso quando o outro fosse usado.
-                {
-                    "provider": caption_result.provider,
-                    "model": caption_result.model,
-                    "role": "caption",
-                },
-            ],
-            "parameters": image_result.params,
-            "genblaze_used": True,
+            # Só há prompt de imagem se houve imagem. Registar um prompt para
+            # uma geração que não aconteceu daria a entender que aconteceu.
+            "prompt": image_result.prompt if image_result else None,
+            "models": _models_usados(image_result, caption_result),
+            "parameters": image_result.params if image_result else {},
+            "image_generated": image_result is not None,
+            "image_skipped_reason": image_skipped_reason,
+            # genblaze_used reflete o que realmente correu: o Pipeline do
+            # Genblaze só é exercitado na etapa de imagem.
+            "genblaze_used": image_result is not None,
             # Estrutura ampliada (permitido pela especificação): dados reais do
             # manifesto nativo do Genblaze para a etapa de imagem, para que a
             # geração seja verificável além da nossa própria reformatação.
-            "genblaze_manifest": image_result.genblaze_manifest,
+            "genblaze_manifest": image_result.genblaze_manifest if image_result else None,
         },
-        "files": {
-            "image": {
-                "b2_key": image_file.key,
-                "content_type": image_file.content_type,
-                "size": image_file.size,
-                "sha256": image_file.sha256,
-            },
-            "caption": {
-                "b2_key": caption_file.key,
-                "content_type": caption_file.content_type,
-                "size": caption_file.size,
-                "sha256": caption_file.sha256,
-            },
-        },
+        "files": _ficheiros(image_file, caption_file),
         "errors": errors or [],
     }
+
+
+def _models_usados(
+    image_result: ImageResult | None, caption_result: CaptionResult
+) -> list[dict]:
+    modelos = []
+    if image_result is not None:
+        modelos.append(
+            {
+                "provider": image_result.provider,
+                "model": image_result.model,
+                "role": "image",
+            }
+        )
+    # o provedor da legenda vem do resultado real, não fixo: com múltiplos
+    # provedores, assumir um deles tornaria o manifesto falso quando o outro
+    # fosse usado.
+    modelos.append(
+        {
+            "provider": caption_result.provider,
+            "model": caption_result.model,
+            "role": "caption",
+        }
+    )
+    return modelos
+
+
+def _ficheiros(
+    image_file: UploadedFile | None, caption_file: UploadedFile
+) -> dict:
+    """Só declara ficheiros que existem mesmo no B2. Uma entrada de imagem
+    vazia levaria a verificação ao vivo a procurar um objeto inexistente."""
+    ficheiros = {}
+    if image_file is not None:
+        ficheiros["image"] = {
+            "b2_key": image_file.key,
+            "content_type": image_file.content_type,
+            "size": image_file.size,
+            "sha256": image_file.sha256,
+        }
+    ficheiros["caption"] = {
+        "b2_key": caption_file.key,
+        "content_type": caption_file.content_type,
+        "size": caption_file.size,
+        "sha256": caption_file.sha256,
+    }
+    return ficheiros
 
 
 def build_caption_txt(caption_result: CaptionResult) -> str:

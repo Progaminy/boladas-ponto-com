@@ -31,6 +31,10 @@ class PostInput(BaseModel):
     location: str | None = Field(default=None, max_length=160)
     contact: str = Field(..., min_length=6, max_length=60)
     color_reference: str | None = Field(default=None, max_length=60)
+    # Descrição do produto: escrita à mão, gerada pela IA a partir de uma
+    # explicação, ou gerada a partir de uma fotografia real.
+    description: str | None = Field(default=None, max_length=600)
+    description_source: str | None = Field(default=None, max_length=20)
 
     @field_validator("brand_name")
     @classmethod

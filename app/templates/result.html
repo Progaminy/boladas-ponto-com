@@ -21,7 +21,28 @@
     <p class="muted">{{ post['business'] }} &middot; post_id: <code>{{ post_id }}</code></p>
 
     {% if post['status'] == 'completed' %}
-      <img class="post-image" src="{{ post['image_url'] }}" alt="{{ post['theme'] }}" />
+      {% if post['image_url'] %}
+        <img class="post-image" src="{{ post['image_url'] }}" alt="{{ post['theme'] }}" />
+      {% else %}
+        <div class="no-image-note">
+          <p class="muted">Este post não tem imagem gerada por IA.</p>
+          {% if post['image_skipped_reason'] %}
+          <p class="muted" style="font-size:0.8rem;">Motivo real: {{ post['image_skipped_reason'][:200] }}</p>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if post['description'] %}
+      <div class="post-description">
+        <p>{{ post['description'] }}</p>
+        <p class="muted description-source">
+          {% if post['description_source'] == 'ia_foto' %}Descrição escrita pela IA a partir de uma fotografia do produto.
+          {% elif post['description_source'] == 'ia_texto' %}Descrição escrita pela IA a partir da explicação do vendedor.
+          {% else %}Descrição escrita pelo vendedor.{% endif %}
+        </p>
+      </div>
+      {% endif %}
+
       <p>{{ post['caption'] }}</p>
       <p><strong>{{ post['call_to_action_generated'] }}</strong></p>
       <p class="hashtags">

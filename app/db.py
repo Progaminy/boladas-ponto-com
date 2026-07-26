@@ -120,9 +120,12 @@ CREATE TABLE IF NOT EXISTS posts (
     contact TEXT NOT NULL,
     color_reference TEXT,
 
+    description TEXT,
+    description_source TEXT,
     caption TEXT,
     call_to_action_generated TEXT,
     hashtags TEXT,
+    image_skipped_reason TEXT,
 
     image_key TEXT,
     caption_key TEXT,
@@ -190,6 +193,9 @@ def init_db() -> None:
         _ensure_column(
             conn, "posts", "moderation_status", "moderation_status TEXT NOT NULL DEFAULT 'approved'"
         )
+        _ensure_column(conn, "posts", "description", "description TEXT")
+        _ensure_column(conn, "posts", "description_source", "description_source TEXT")
+        _ensure_column(conn, "posts", "image_skipped_reason", "image_skipped_reason TEXT")
         _backfill_business_owners(conn)
 
 
@@ -374,8 +380,9 @@ def create_post(post_id: str, user_id: str, business_id: str | None, data: PostI
                 post_id, user_id, business_id, status, created_at, updated_at, error,
                 theme, business, category, publisher_type, brand_name,
                 target_audience, objective, tone, language, call_to_action_input,
-                price_mt, location, contact, color_reference
-            ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                price_mt, location, contact, color_reference,
+                description, description_source
+            ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 post_id, user_id, business_id, PostStatus.PENDING.value, now, now,
@@ -383,6 +390,7 @@ def create_post(post_id: str, user_id: str, business_id: str | None, data: PostI
                 data.brand_name, data.target_audience, data.objective, data.tone,
                 data.language, data.call_to_action, data.price_mt, data.location,
                 data.contact, data.color_reference,
+                data.description, data.description_source,
             ),
         )
     return now
@@ -402,11 +410,12 @@ def save_generation_result(
     caption: str,
     call_to_action_generated: str,
     hashtags: list[str],
-    image_key: str,
+    image_key: str | None,
     caption_key: str,
     provenance_key: str,
     thumbnail_key: str | None,
-    image_url: str,
+    image_url: str | None,
+    image_skipped_reason: str | None = None,
 ) -> None:
     with get_conn() as conn:
         conn.execute(
@@ -414,13 +423,13 @@ def save_generation_result(
             UPDATE posts SET
                 caption = ?, call_to_action_generated = ?, hashtags = ?,
                 image_key = ?, caption_key = ?, provenance_key = ?,
-                thumbnail_key = ?, image_url = ?, updated_at = ?
+                thumbnail_key = ?, image_url = ?, image_skipped_reason = ?, updated_at = ?
             WHERE post_id = ?
             """,
             (
                 caption, call_to_action_generated, json.dumps(hashtags, ensure_ascii=False),
                 image_key, caption_key, provenance_key, thumbnail_key, image_url,
-                _now(), post_id,
+                image_skipped_reason, _now(), post_id,
             ),
         )
 

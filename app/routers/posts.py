@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from PIL import Image
 
@@ -12,7 +12,9 @@ from app.auth import get_current_user
 from app.categories import get_category, list_categories
 from app.category_classify import suggest_category
 from app.config import MAX_POSTS_PER_USER_PER_DAY
+from app.describe import DescriptionError, describe_from_image, describe_from_text
 from app.image_compose import add_business_overlay
+from app.media_validate import MediaValidationError, validate_photo
 from app.models import PostInput, PostStatus, PublisherType
 from app.moderation import check_text_blocklist, check_text_with_ai
 from app.pipeline import GenerationError, generate_caption, generate_image
@@ -54,10 +56,47 @@ def suggest_category_endpoint(request: Request, description: str = Form(...)):
     slug = suggest_category(description)
     if slug is None:
         return JSONResponse(
-            {"error": "Sugestão automática indisponível de momento (sem saldo GMICloud)."},
+            {
+                "error": (
+                    "Sugestão automática indisponível. Verifica o acesso à IA "
+                    "em /estado, ou escolhe a categoria manualmente."
+                )
+            },
             status_code=503,
         )
     return JSONResponse({"slug": slug, "label": get_category(slug).label})
+
+
+@router.post("/descricao/sugerir")
+async def suggest_description_endpoint(
+    request: Request,
+    explicacao: str | None = Form(None),
+    foto: UploadFile | None = File(default=None),
+):
+    """Gera a descrição do produto a partir de uma fotografia real ou de uma
+    explicação escrita à pressa. Quem preferir escreve à mão e não passa por
+    aqui."""
+    if get_current_user(request) is None:
+        return JSONResponse({"error": "Sessão expirada."}, status_code=401)
+
+    tem_foto = foto is not None and bool(foto.filename)
+    try:
+        if tem_foto:
+            dados = await foto.read()
+            validate_photo(dados, foto.content_type)
+            texto = describe_from_image(
+                dados, foto.content_type, contexto=explicacao or ""
+            )
+            origem = "ia_foto"
+        else:
+            texto = describe_from_text(explicacao or "")
+            origem = "ia_texto"
+    except MediaValidationError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    except DescriptionError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
+
+    return JSONResponse({"description": texto, "source": origem})
 
 
 @router.post("/posts")
@@ -77,6 +116,8 @@ def create_post(
     location: str | None = Form(None),
     contact: str = Form(...),
     color_reference: str | None = Form(None),
+    description: str | None = Form(None),
+    description_source: str | None = Form(None),
 ):
     user = get_current_user(request)
     if user is None:
@@ -131,6 +172,11 @@ def create_post(
             location=location or None,
             contact=contact,
             color_reference=color_reference or None,
+            description=(description or "").strip() or None,
+            # se veio texto mas sem origem declarada, foi escrito à mão
+            description_source=(description_source or "manual")
+            if (description or "").strip()
+            else None,
         )
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
@@ -174,43 +220,56 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
     category = get_category(post_input.category)
 
     db.update_status(post_id, PostStatus.GENERATING)
+
+    # A legenda é obrigatória: sem texto não há post. A imagem gerada por IA
+    # é um extra — um anúncio com descrição, preço e fotos reais do produto
+    # continua a ser um anúncio válido. Por isso a falha na imagem não deita
+    # o post abaixo; fica registada e visível.
     try:
-        image_result = generate_image(post_input, category)
         caption_result = generate_caption(post_input, category)
     except GenerationError as exc:
         db.update_status(post_id, PostStatus.FAILED, error=str(exc))
         return {"post_id": post_id, "status": PostStatus.FAILED.value, "error": str(exc)}
     except Exception as exc:  # nunca deixar um post preso em "generating"
-        error = f"Falha inesperada na geração ({type(exc).__name__}): {exc}"
+        error = f"Falha inesperada na geração do texto ({type(exc).__name__}): {exc}"
         db.update_status(post_id, PostStatus.FAILED, error=error)
         return {"post_id": post_id, "status": PostStatus.FAILED.value, "error": error}
 
+    image_result = None
+    image_skipped_reason = None
+    try:
+        image_result = generate_image(post_input, category)
+    except Exception as exc:
+        image_skipped_reason = str(exc)
+
     db.update_status(post_id, PostStatus.UPLOADING)
     try:
-        final_image_bytes = add_business_overlay(
-            image_result.bytes_,
-            category=category,
-            business_name=post_input.brand_name or post_input.business,
-            price_mt=post_input.price_mt,
-            call_to_action=caption_result.call_to_action,
-        )
-        image_file = upload_and_verify(
-            post_key(post_id, "image.png"), final_image_bytes, "image/png"
-        )
+        image_file = None
+        thumbnail_key = None
+        if image_result is not None:
+            final_image_bytes = add_business_overlay(
+                image_result.bytes_,
+                category=category,
+                business_name=post_input.brand_name or post_input.business,
+                price_mt=post_input.price_mt,
+                call_to_action=caption_result.call_to_action,
+            )
+            image_file = upload_and_verify(
+                post_key(post_id, "image.png"), final_image_bytes, "image/png"
+            )
+            try:
+                thumb_bytes = _make_thumbnail(final_image_bytes)
+                thumb_file = upload_and_verify(
+                    post_key(post_id, "thumbnail.webp"), thumb_bytes, "image/webp"
+                )
+                thumbnail_key = thumb_file.key
+            except Exception:
+                thumbnail_key = None  # miniatura é best-effort; não bloqueia o post
+
         caption_txt = build_caption_txt(caption_result)
         caption_file = upload_and_verify(
             post_key(post_id, "caption.txt"), caption_txt.encode("utf-8"), "text/plain"
         )
-
-        thumbnail_key = None
-        try:
-            thumb_bytes = _make_thumbnail(final_image_bytes)
-            thumb_file = upload_and_verify(
-                post_key(post_id, "thumbnail.webp"), thumb_bytes, "image/webp"
-            )
-            thumbnail_key = thumb_file.key
-        except Exception:
-            thumbnail_key = None  # miniatura é best-effort; não bloqueia o post
 
         provenance_doc = build_provenance(
             post_id=post_id,
@@ -220,6 +279,7 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
             caption_result=caption_result,
             image_file=image_file,
             caption_file=caption_file,
+            image_skipped_reason=image_skipped_reason,
         )
         provenance_file = upload_and_verify(
             post_key(post_id, "provenance.json"),
@@ -239,15 +299,20 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
         caption=caption_result.caption,
         call_to_action_generated=caption_result.call_to_action,
         hashtags=caption_result.hashtags,
-        image_key=image_file.key,
+        image_key=image_file.key if image_file else None,
         caption_key=caption_file.key,
         provenance_key=provenance_file.key,
         thumbnail_key=thumbnail_key,
-        image_url=image_file.url,
+        image_url=image_file.url if image_file else None,
+        image_skipped_reason=image_skipped_reason,
     )
     db.update_status(post_id, PostStatus.COMPLETED)
 
-    return {"post_id": post_id, "status": PostStatus.COMPLETED.value}
+    return {
+        "post_id": post_id,
+        "status": PostStatus.COMPLETED.value,
+        "image_skipped_reason": image_skipped_reason,
+    }
 
 
 def _make_thumbnail(png_bytes: bytes) -> bytes:

@@ -28,6 +28,39 @@
     <input type="text" id="business" name="business" required maxlength="120" placeholder="Ex: Camisa vintage tamanho M" />
   </div>
 
+  <fieldset class="describe-box">
+    <legend>Descrição do produto</legend>
+    <p class="muted describe-hint">
+      Escreve à mão, ou deixa a IA escrever por ti — a partir de uma foto real
+      do produto, ou de uma explicação rápida à tua maneira.
+    </p>
+
+    <div class="field">
+      <label for="description">Descrição</label>
+      <textarea id="description" name="description" rows="3" maxlength="600"
+                placeholder="Ex: Camisa de algodão, tamanho M, usada duas vezes, sem defeitos."></textarea>
+      <input type="hidden" id="description_source" name="description_source" value="" />
+    </div>
+
+    <details class="describe-ai">
+      <summary>Pedir à IA para escrever</summary>
+
+      <div class="field">
+        <label for="explicacao">Explica por palavras tuas (opcional se enviares foto)</label>
+        <textarea id="explicacao" rows="2" maxlength="1000"
+                  placeholder="Ex: é uma camisa que comprei e só usei duas vezes, está como nova"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="foto_descricao">Ou envia uma foto do produto</label>
+        <input type="file" id="foto_descricao" accept="image/jpeg,image/png,image/webp" />
+      </div>
+
+      <button type="button" id="describe-btn">Gerar descrição</button>
+      <span id="describe-status" class="describe-status"></span>
+    </details>
+  </fieldset>
+
   <div class="field">
     <label for="category">Categoria *</label>
     <select id="category" name="category" required>
