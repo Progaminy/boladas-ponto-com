@@ -88,7 +88,10 @@ def gravar(url_base: str, saida: Path, com_login: bool) -> Path | None:
                 _pausa(0.8)
                 pagina.fill("#password", PASSWORD_DEMO)
                 _pausa(0.8)
-                pagina.click("button[type=submit]")
+                # botão dentro do formulário de email/password: um seletor
+                # genérico apanhava o botão de login com Google, que aparece
+                # primeiro na página, e entrava com a conta errada
+                pagina.click("form[action='/entrar'] button[type=submit]")
                 pagina.wait_for_load_state("networkidle", timeout=20000)
                 _pausa(3)
             except Exception as exc:
