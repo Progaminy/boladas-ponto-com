@@ -20,6 +20,13 @@ body {
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(23, 26, 33, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   display: flex;
   justify-content: space-between;
   align-items: center;
