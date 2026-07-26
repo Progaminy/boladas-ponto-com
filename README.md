@@ -202,10 +202,16 @@ isto é aceitável, mas é uma limitação a resolver antes de um uso real em pr
 
 ## Estado atual
 
-**Verificado a funcionar contra os serviços reais:** a ligação ao Backblaze B2 está
-operacional (upload, verificação por SHA-256 e remoção testados com as credenciais reais), e
-a chave do GMICloud é válida — o catálogo devolve 78 modelos, incluindo os que a aplicação
-usa por omissão.
+**Verificado a funcionar contra os serviços reais**, com credenciais verdadeiras:
+
+| Capacidade | Estado | Verificação |
+|---|---|---|
+| Armazenamento no Backblaze B2 | ✅ | Upload, verificação por SHA-256 e remoção testados no bucket real |
+| Legenda + CTA + hashtags | ✅ | Gerados pelo Gemini em português, com preço e bairro integrados |
+| Sugestão automática de categoria | ✅ | Classificou corretamente farmácia e oficina mecânica |
+| Moderação de texto por IA | ✅ | Aprovou anúncio legítimo, sinalizou documentos falsificados |
+| Moderação visual (fotos/vídeo) | ✅ | Devolveu veredicto real sobre uma imagem real |
+| **Geração de imagem** | ❌ | Bloqueada por quota — ver abaixo |
 
 **Implementado:** registo/login com Termos de Uso, várias empresas por utilizador com perfis
 e fotos, formulário de criação que fica simples para uma venda pessoal e completo para uma
@@ -216,15 +222,29 @@ desse manifesto, histórico privado, galeria com filtros, mensagens ligadas ao p
 real do produto (4 fotos + vídeo de 30s validados), rastreio de transações, moderação em três
 camadas com revisão humana, diagnóstico do sistema e interface responsiva.
 
-**Dependente de credenciais, não de código:** a conta GMICloud está sem créditos e devolve
-`402 Insufficient credits`. Foi por isso que o Gemini via Vertex AI Express entrou como
-provedor principal — basta definir `VERTEX_EXPRESS_API_KEY` para a geração real ficar
-disponível, sem alterar código. Está confirmado que a aplicação lida corretamente com a falta
-de saldo: o post fica `failed` com a mensagem real do serviço, sem estados presos nem
-sucessos simulados. Confirma o estado de cada provedor em `/estado`.
+### Por que a geração de imagem está bloqueada
 
-**Por fazer:** definir a chave do Vertex e gerar os posts reais de demonstração, deploy para a
-URL pública, conta de demonstração para os jurados e o vídeo de apresentação.
+O pipeline de imagem está implementado, testado e ligado a dois provedores. O que falta não é
+código — é acesso pago, e a barreira é concreta:
+
+- **Gemini (Google):** a chave é válida e dá acesso a 56 modelos, mas **todos** os modelos de
+  imagem devolvem `429` com `limit: 0` — o plano gratuito não atribui qualquer quota de
+  geração de imagem. Seria preciso ativar faturação.
+- **GMICloud:** a chave é válida (78 modelos), mas a conta devolve `402 Insufficient credits`.
+
+Ambas as alternativas exigem um cartão de crédito ou débito internacional. O autor está em
+Moçambique e não tem acesso a esse meio de pagamento: cartões pré-pagos não são aceites por
+estes fornecedores, e o banco local não autoriza pagamentos online por cartão. Não é uma
+decisão técnica nem uma tarefa por fazer — é uma barreira de acesso a infraestrutura, que é
+precisamente o tipo de obstáculo que este projeto existe para contornar no lado de quem vende.
+
+O comportamento perante essa falta foi verificado e é honesto: o post fica `failed` com a
+mensagem real de cada provedor, sem estados presos nem sucessos simulados. Assim que existir
+qualquer via de pagamento, a geração de imagem passa a funcionar sem alterar uma linha de
+código — basta saldo. Confirma o estado de cada provedor em `/estado`.
+
+**Por fazer:** deploy para a URL pública, conta de demonstração para os jurados e o vídeo de
+apresentação.
 
 **Nota sobre pagamentos:** o Boladas-ponto-com não processa nem retém dinheiro de
 utilizadores. Um mecanismo desse tipo (custódia/escrow) exigiria licenciamento como
