@@ -28,29 +28,14 @@ THUMBNAIL_SIZE = 320
 
 
 @router.get("/", response_class=HTMLResponse)
-def root(request: Request, categoria: str | None = None, local: str | None = None):
-    current_user = get_current_user(request)
-    rows = db.list_public_posts(category=categoria or None, location_query=local or None)
-    user_id = current_user["user_id"] if current_user else None
-    posts = []
-    for row in rows:
-        post_id = row["post_id"]
-        reactions = db.get_post_reactions(post_id, user_id)
-        comments = db.get_post_comments(post_id)
-        posts.append({
-            "row": row,
-            "category": get_category(row["category"]),
-            "reactions": reactions,
-            "comments": comments,
-        })
+def root(request: Request):
+    """Apresenta o produto antes do login e leva membros ao feed privado."""
+    if get_current_user(request) is not None:
+        return RedirectResponse("/explorar", status_code=303)
     return templates.TemplateResponse(
-        request, "explore.html",
-        {
-            "posts": posts,
-            "categories": list_categories(),
-            "selected_category": categoria or "",
-            "location_query": local or "",
-        },
+        request,
+        "landing.html",
+        {"categories": list_categories()},
     )
 
 
@@ -498,4 +483,3 @@ def change_post_status(request: Request, post_id: str, new_status: str = Form(..
     db.update_status(post_id, new_status)
     referer = request.headers.get("referer") or "/perfil?tab=produtos"
     return RedirectResponse(referer, status_code=303)
-

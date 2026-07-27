@@ -47,13 +47,15 @@
               <span style="font-size: 0.75rem; background: #2563EB; color: white; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600;">O Meu Perfil</span>
             {% endif %}
           </h1>
-          <p class="muted" style="margin: 0.2rem 0 0 0; font-size: 0.9rem; display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
-            {% if profile_user['phone'] %}<span>📱 {{ profile_user['phone'] }}</span>{% endif %}
-            {% if profile_user['email'] %}<span>📧 {{ profile_user['email'] }}</span>{% endif %}
-            <span style="background: #374151; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
-              🔑 Provider: {{ profile_user['auth_provider'] | upper if profile_user['auth_provider'] else 'EMAIL' }}
-            </span>
-          </p>
+          {% if is_owner %}
+            <p class="muted" style="margin: 0.2rem 0 0 0; font-size: 0.9rem; display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
+              {% if profile_user['phone'] %}<span>📱 {{ profile_user['phone'] }}</span>{% endif %}
+              {% if profile_user['email'] %}<span>📧 {{ profile_user['email'] }}</span>{% endif %}
+              <span style="background: #374151; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                🔑 Provider: {{ profile_user['auth_provider'] | upper if profile_user['auth_provider'] else 'EMAIL' }}
+              </span>
+            </p>
+          {% endif %}
         </div>
       </div>
 
@@ -71,7 +73,7 @@
     <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10B981; color: #34D399; padding: 1rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
       <div>
         <strong style="font-size: 1.05rem;">🎉 Anúncio Publicado com Sucesso!</strong>
-        <p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #A7F3D0;">O teu produto foi armazenado e já se encontra listado no teu perfil e no feed público.</p>
+        <p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #A7F3D0;">O teu produto foi armazenado e já se encontra listado no teu perfil e no feed autenticado.</p>
       </div>
       <a href="/posts/{{ created_id }}/fatura.pdf" class="btn-primary" style="background: #10B981; color: #064E3B; font-weight: 700; padding: 0.5rem 1rem; text-decoration: none; border-radius: 6px; white-space: nowrap;">📄 Baixar Comprovativo PDF</a>
     </div>
@@ -469,4 +471,3 @@ async function generateAiAsset() {
 
 {% endif %}
 {% endblock %}
-

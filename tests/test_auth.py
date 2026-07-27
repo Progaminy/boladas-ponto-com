@@ -80,9 +80,14 @@ def test_protected_routes_redirect_when_logged_out(client):
         assert resp.headers["location"] == "/entrar", path
 
 
-def test_explorar_public_without_session(client):
+def test_feed_and_comparator_redirect_without_session(client):
     resp = client.get("/explorar", follow_redirects=False)
-    assert resp.status_code == 200
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/entrar"
+
+    resp = client.get("/comparar", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/entrar"
 
 
 def test_create_post_without_session_returns_401(client):
@@ -128,4 +133,60 @@ def test_explorar_accessible_for_logged_in_user(client):
 def test_landing_page_shown_when_logged_out(client):
     resp = client.get("/", follow_redirects=False)
     assert resp.status_code == 200
-    assert "Feed" in resp.text
+    assert "Boladas-ponto-com" in resp.text
+    assert "Do zero ao infinito." in resp.text
+    assert "Criar conta grátis" in resp.text
+    assert "Feed Social de Negócios" not in resp.text
+
+
+def test_root_redirects_logged_in_user_to_feed(client):
+    client.post(
+        "/registar",
+        data={
+            "email": "landing@exemplo.co.mz",
+            "password": "password123",
+            "display_name": "Landing",
+            "terms_accepted": "on",
+        },
+        follow_redirects=False,
+    )
+
+    resp = client.get("/", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/explorar"
+
+
+def test_personal_profile_requires_login_and_hides_auth_data_from_other_users(client):
+    owner_email = "perfil-privado@exemplo.co.mz"
+    client.post(
+        "/registar",
+        data={
+            "email": owner_email,
+            "password": "password123",
+            "display_name": "Perfil Privado",
+            "terms_accepted": "on",
+        },
+        follow_redirects=False,
+    )
+    owner = db_module.get_user_by_email(owner_email)
+    client.post("/sair", follow_redirects=False)
+
+    resp = client.get(f"/utilizador/{owner['user_id']}", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/entrar"
+
+    client.post(
+        "/registar",
+        data={
+            "email": "visitante-perfil@exemplo.co.mz",
+            "password": "password123",
+            "display_name": "Visitante",
+            "terms_accepted": "on",
+        },
+        follow_redirects=False,
+    )
+    resp = client.get(f"/utilizador/{owner['user_id']}")
+    assert resp.status_code == 200
+    assert "Perfil Privado" in resp.text
+    assert owner_email not in resp.text
+    assert "Provider:" not in resp.text

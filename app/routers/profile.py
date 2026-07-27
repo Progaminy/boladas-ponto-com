@@ -1,4 +1,4 @@
-"""Perfil pessoal (público) e fotos de perfil/capa — uma pessoal (conta) e
+"""Perfil pessoal autenticado e fotos de perfil/capa — uma pessoal (conta) e
 uma por cada empresa que o utilizador registar."""
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
@@ -29,6 +29,9 @@ def my_profile_redirect(request: Request):
 @router.get("/utilizador/{user_id}", response_class=HTMLResponse)
 def user_profile(request: Request, user_id: str):
     current_user = get_current_user(request)
+    if current_user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
     profile_user = db.get_user_by_id(user_id)
     if profile_user is None:
         return templates.TemplateResponse(
@@ -36,7 +39,7 @@ def user_profile(request: Request, user_id: str):
             status_code=404,
         )
 
-    is_owner = bool(current_user and current_user["user_id"] == user_id)
+    is_owner = current_user["user_id"] == user_id
     active_tab = request.query_params.get("tab") or "produtos"
     created_id = request.query_params.get("created")
 
@@ -193,4 +196,3 @@ def set_business_theme(request: Request, business_id: str, theme: str = Form("pa
     except PermissionError:
         pass
     return RedirectResponse(f"/negocio/{business_id}", status_code=303)
-

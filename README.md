@@ -1,6 +1,6 @@
 # Boladas-ponto-com
 
-**Crie posts. Guarde a origem.**
+**Do zero ao infinito.**
 
 Aplicação de geração de posts para redes sociais criada para o **Backblaze Generative Media Hackathon**. Transforma o briefing de um negócio (tema, produto/serviço, público-alvo, tom, chamada para ação, categoria, preço em Metical, localização e contacto) num post pronto a publicar — imagem 1080×1080, legenda, chamada para ação e hashtags — usando o SDK **[Genblaze](https://github.com/backblaze-labs/genblaze)** com **Gemini (Vertex AI Express)** como provedor principal e **GMICloud** como alternativa, e guarda tudo no **Backblaze B2** com um manifesto de proveniência verificável (SHA-256).
 
@@ -31,12 +31,12 @@ Qualquer visitante ou utilizador registado pode consultar as seguintes regras e 
    - Cada empresa possui uma página personalizada estilo montra profissional com capa, logótipo, NUIT, localização, catálogo de produtos, lista de sócios/gestores e botões de contacto direto (`WhatsApp`, `Ligar`, `Messenger Boladas`).
 
 2. **Comparador de Preços & Detetador de Proximidade GPS (`/comparar`)**:
-   - Permite aos utilizadores pesquisar por produto (ex.: *Cimento, Paracetamol, Capulana, Arroz, Mudança*) e comparar instantaneamente os preços em Meticais (`MT`) praticados por diferentes lojas e vendedores.
+   - Depois de iniciar sessão, permite pesquisar por produto (ex.: *Cimento, Paracetamol, Capulana, Arroz, Mudança*) e comparar instantaneamente os preços em Meticais (`MT`) praticados por diferentes lojas e vendedores.
    - Integração com a API de Geolocalização GPS do navegador (`navigator.geolocation`) para calcular a distância exata em quilómetros (`km`) até à loja física mais próxima (`🚗 1.2 km de distância - Av. 24 de Julho`), facilitando compras presenciais imediatas.
 
-3. **Feed Social Estilo Facebook / TikTok (`/explorar` e `/`)**:
-   - Ao aceder à plataforma, o utilizador entra diretamente no Feed Social de Negócios para navegar em fotos de produtos.
-   - Cada cartão exibe a foto/avatar do perfil do vendedor ou insígnia SVG dinâmica em gradiente, ID do produto (`#...`), preço em MT, contacto de mediação da plataforma (`872599084`), botões de reações (👍 Like / 👎 Dislike com justificativa auditável) e caixa pública de comentários.
+3. **Feed Social Estilo Facebook / TikTok (`/explorar`)**:
+   - Antes do login, `/` apresenta o produto sem expor o feed. Depois da autenticação, o utilizador entra no Feed Social de Negócios para navegar em fotos de produtos.
+   - Cada cartão exibe a foto/avatar do perfil do vendedor ou insígnia SVG dinâmica em gradiente, ID do produto (`#...`), preço em MT, contacto de mediação da plataforma (`872599084`), botões de reações (👍 Like / 👎 Dislike com justificativa auditável) e comentários.
 
 4. **Autonomia Total de Perfil, Edição & Temas Festivos (`/perfil/fotos` e `/empresa/{id}`)**:
    - O utilizador tem controlo total para retificar, editar ou apagar anúncios, atualizar fotos de perfil/capa e ativar temas sazonais/festivos (Natal, Festas de Empresa, etc.) na sua página ou loja a qualquer momento.
@@ -66,7 +66,7 @@ Qualquer visitante ou utilizador registado pode consultar as seguintes regras e 
 - **Transações**: checklist de confiança entre comprador e vendedor (`pendente → vendido → recebido`, com opção de mediação da equipa) — sem custódia de dinheiro (ver nota em "Estado atual").
 - **Moderação em três camadas**: (1) lista de bloqueio de texto local, sem custo, aplicada antes de gastar qualquer crédito de geração; (2) classificação textual por IA (Vertex, com GMICloud como fallback); (3) verificação visual real de fotos e vídeo com o Gemini. Qualquer camada de IA devolve "não verificado" — nunca "limpo" — se a chamada falhar. Por baixo de tudo, qualquer utilizador pode reportar um post, ocultando-o até um admin decidir em `/admin/moderacao`.
 - **Categorias e cor da plataforma**: cor oficial roxo escuro na interface; ~29 categorias com cores coerentes por omissão (ex.: farmácia branco, eletricidade laranja, mecânica azul-escuro); qualquer categoria fora da lista é aceite tal como escrita (nunca bloqueada), e há um botão para sugerir a categoria automaticamente a partir da descrição via IA (depende de um provedor de IA disponível).
-- **Fotos de perfil/capa**: uma foto de perfil e uma de capa para a conta pessoal, e o mesmo por cada empresa registada — com perfil público em `/utilizador/<id>` e `/negocio/<id>`.
+- **Fotos de perfil/capa**: uma foto de perfil e uma de capa para a conta pessoal, e o mesmo por cada empresa registada — o perfil pessoal em `/utilizador/<id>` exige sessão e a montra empresarial em `/negocio/<id>` é pública.
 - **Empresas com sócios**: uma empresa pode ter vários gestores, cada um com o seu próprio acesso. Todos publicam e editam; só o proprietário acrescenta ou remove gestores, e o proprietário nunca pode ser removido (uma empresa sem dono ficaria inacessível).
 - **Cadastro direto de empresa**: `/registar/empresa` cria a conta de acesso e o negócio num só passo, para quem só quer registar a loja e não uma conta pessoal.
 - **Verificação de proveniência ao vivo**: `POST /posts/<id>/verificar` (público) volta a descarregar do B2 cada ficheiro declarado no manifesto e recalcula o SHA-256, com resultado por ficheiro.
@@ -117,6 +117,7 @@ http://127.0.0.1:8000
 Sem sessão:
 - `/` — página de apresentação (quem já tem sessão vai direto para `/explorar`)
 - `/registar`, `/entrar` — criar conta / iniciar sessão
+- `/empresas` e os perfis individuais de empresas — diretório e montras públicas
 - `/termos` — Termos de Uso
 - `/estado` — diagnóstico real das ligações ao B2, Vertex e GMICloud
 - `/health` — health-check leve para o Render (não contacta serviços externos)
@@ -125,8 +126,10 @@ Sem sessão:
 
 Requer sessão (redireciona para `/entrar` se não autenticado):
 - `/explorar` — galeria de negócios, filtrável por categoria e localização
+- `/comparar` — comparação de preços e proximidade GPS
 - `/criar` — formulário de criação de post
-- `/empresa` — lista das minhas empresas; `/empresa/nova` — registar outra; `/negocio/<business_id>` — perfil público
+- `/empresa` — lista das minhas empresas; `/empresa/nova` — registar outra
+- `/utilizador/<user_id>` — perfil pessoal autenticado; email, telefone e provedor de autenticação só aparecem ao próprio dono
 - `/perfil/fotos` e `/empresa/<id>/fotos` — fotos de perfil e capa
 - `/historico` — histórico privado dos meus posts (inclui `pending`/`failed`)
 - `/mensagens`, `/transacoes` — conversas e estado das compras/vendas
@@ -138,7 +141,7 @@ Requer sessão (redireciona para `/entrar` se não autenticado):
 pytest -q
 ```
 
-83 testes, todos sem custo e sem tocar em serviços externos (backend B2 simulado e base de dados SQLite isolada por teste). Cobrem, entre outros:
+137 testes passam sem custo e sem tocar em serviços externos (backend B2 simulado e base de dados SQLite isolada por teste); o teste de integração real permanece ignorado por omissão. Cobrem, entre outros:
 
 - upload no B2 verificado por tamanho **e** SHA-256 remoto, incluindo um cenário de corrupção silenciosa (mesmo tamanho, conteúdo diferente);
 - verificação de proveniência ao vivo, incluindo deteção de um objeto adulterado no bucket e relato honesto de um ficheiro em falta;
@@ -194,7 +197,7 @@ Dockerfile na raiz (usado pelo deploy no Render) instala `ffmpeg` para a valida�
 
 ## Contas de exemplo
 
-Registo/login, explorar, criar posts, histórico e perfil de negócio exigem sessão. A página
+Registo/login, explorar, comparar, criar posts, histórico e perfil pessoal exigem sessão. A página
 de resultado de um post e a sua proveniência (`/posts/<id>` e `/posts/<id>/provenance`) são
 públicas e partilháveis, para poderem ser verificadas sem conta.
 

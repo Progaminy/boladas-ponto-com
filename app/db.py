@@ -267,7 +267,7 @@ def create_user_full(
     from app.config import ADMIN_EMAIL
 
     now = _now()
-    clean_email = email.strip().lower() if email else f"user_{user_id[:8]}@boladas.com"
+    clean_email = email.strip().lower() if email else f"user_{user_id[:8]}@boladas-ponto-com.invalid"
     clean_hash = password_hash or "auth_external"
     is_admin = 1 if ADMIN_EMAIL and email and email.strip().lower() == ADMIN_EMAIL else 0
     with get_conn() as conn:

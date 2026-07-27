@@ -2,7 +2,7 @@
 
 **Backblaze Generative Media Hackathon**  
 **Projeto**: Boladas-ponto-com — Plataforma de Geração de Anúncios, Comércio Local, Proveniência Digital e Comparação de Preços com GPS  
-**Slogan**: *Crie posts. Guarde a origem. Conecte negócios em Moçambique.*
+**Slogan**: *Do zero ao infinito.*
 
 ---
 
@@ -49,9 +49,9 @@ A plataforma utiliza um pipeline multi-provider resiliente:
 1. **Diretório Público de Empresas (`/empresas`)**:
    - Páginas completas com capas, logótipos, NUIT, localização, catálogo de produtos e gestores de lojas reais (ex.: *Farmácia Moçambique Vida, Ferragem Lendária Maputo, Moda & Estilo Boutique, Mercado Popular de Xipamanine, Transporte & Carga Expresso*).
 2. **Comparador de Preços & GPS Proximidade (`/comparar`)**:
-   - Comparação de preços em Meticais (`MT`) e integração com a API `navigator.geolocation` do navegador para calcular a distância exata em quilómetros (`🚗 1.2 km de distância`) até à loja física mais próxima.
-3. **Feed Social & Interação Completa (`/explorar` e `/`)**:
-   - Cartões com foto de perfil/avatar, reações (👍 Like / 👎 Dislike com motivo auditável) e caixas de comentários públicas.
+   - Disponível depois do login, com comparação de preços em Meticais (`MT`) e integração com a API `navigator.geolocation` do navegador para calcular a distância exata em quilómetros (`🚗 1.2 km de distância`) até à loja física mais próxima.
+3. **Apresentação Pública + Feed Social Autenticado (`/` e `/explorar`)**:
+   - `/` apresenta o produto antes do login; `/explorar` concentra os cartões, reações e comentários depois da autenticação.
 4. **Messenger Boladas & Mediação Humana (`872599084`)**:
    - Ficha de contexto do produto no topo do chat e botão `🆘 Pedir Assistência Humana` para apoio direto da equipa da plataforma.
 5. **Autonomia & Temas Festivos (`/perfil/fotos` e `/empresa/{id}`)**:
@@ -96,7 +96,7 @@ Acede a `http://localhost:8000` no teu navegador.
 ```bash
 pytest -v
 ```
-Todos os 115+ testes devem passar com sucesso (`100% pass`).
+Todos os 137 testes devem passar com sucesso (`100% pass`; o teste de integração real permanece desativado por omissão).
 
 ---
 
@@ -104,4 +104,4 @@ Todos os 115+ testes devem passar com sucesso (`100% pass`).
 - **Repositório GitHub**: [https://github.com/Progaminy/boladas-ponto-com](https://github.com/Progaminy/boladas-ponto-com)
 - **Diagnóstico do Sistema**: `http://localhost:8000/estado`
 - **Diretório de Lojas**: `http://localhost:8000/empresas`
-- **Comparador de Preços & GPS**: `http://localhost:8000/comparar`
+- **Comparador de Preços & GPS (requer login)**: `http://localhost:8000/comparar`

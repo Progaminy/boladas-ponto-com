@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import uuid
 
 from app import db
 from app.main import app
@@ -22,6 +23,16 @@ def test_businesses_directory_lists_stores():
 
 def test_compare_prices_and_proximity():
     db.init_db()
+    client.post(
+        "/registar",
+        data={
+            "email": f"compare-{uuid.uuid4().hex}@exemplo.co.mz",
+            "password": "password123",
+            "display_name": "Comprador",
+            "terms_accepted": "on",
+        },
+        follow_redirects=False,
+    )
 
     # Pesquisar cimento
     resp_cimento = client.get("/comparar?q=cimento")

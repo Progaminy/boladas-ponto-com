@@ -12,9 +12,12 @@ router = APIRouter()
 @router.get("/explorar", response_class=HTMLResponse)
 def explore(request: Request, categoria: str | None = None, local: str | None = None):
     current_user = get_current_user(request)
+    if current_user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
     rows = db.list_public_posts(category=categoria or None, location_query=local or None)
-    
-    user_id = current_user["user_id"] if current_user else None
+
+    user_id = current_user["user_id"]
     posts = []
     for row in rows:
         post_id = row["post_id"]

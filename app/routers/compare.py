@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app import db
 from app.auth import get_current_user
@@ -18,6 +18,10 @@ def compare_prices_page(
     lon: float | None = None,
     sort: str = "price_asc",
 ):
+    current_user = get_current_user(request)
+    if current_user is None:
+        return RedirectResponse("/entrar", status_code=303)
+
     results = db.compare_prices_and_proximity(
         search_query=q,
         category=cat,
@@ -37,6 +41,6 @@ def compare_prices_page(
             "user_lat": lat,
             "user_lon": lon,
             "sort_by": sort,
-            "current_user": get_current_user(request),
+            "current_user": current_user,
         },
     )

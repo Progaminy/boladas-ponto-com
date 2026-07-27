@@ -114,7 +114,7 @@ def generate_invoice_pdf(
     # Cabeçalho da Fatura
     header_data = [
         [
-            Paragraph("<b>BOLADAS.COM</b><br/><font size=8 color='#64748B'>Marketplace & Proveniência Digital Internacional</font>", title_style),
+            Paragraph("<b>Boladas-ponto-com</b><br/><font size=8 color='#64748B'>Do zero ao infinito.</font>", title_style),
             Paragraph(f"FATURA ELETRÓNICA<br/><font size=9 color='#475569'>Nº {invoice_number}</font>", header_right),
         ]
     ]
@@ -222,7 +222,7 @@ def generate_invoice_pdf(
     # Rodapé Internacional
     elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#E2E8F0'), spaceAfter=10))
     elements.append(Paragraph(
-        "Fatura Emitida Eletronicamente via Boladas.com · Documento válido para verificação comercial e proveniência de produtos · Suporte: +258 872599084",
+        "Fatura emitida eletronicamente via Boladas-ponto-com · Documento válido para verificação comercial e proveniência de produtos · Suporte: +258 872599084",
         footer_style
     ))
 

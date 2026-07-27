@@ -66,8 +66,8 @@ def test_quota_429_fallback_completes_post_and_stores_files_in_b2(mock_upload, m
     assert post["provenance_key"] is not None
 
 
-def test_public_can_browse_explore_feed_without_session():
+def test_public_is_redirected_to_login_before_browsing_feed():
     test_c = TestClient(app)
-    resp = test_c.get("/explorar")
-    assert resp.status_code == 200
-    assert "Feed Social de Negócios" in resp.text
+    resp = test_c.get("/explorar", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/entrar"
