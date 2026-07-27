@@ -8,7 +8,7 @@
 
 ## 🚀 Resumo Executivo
 
-O **Boladas-ponto-com** é uma aplicação completa de geração de conteúdos publicitários e comércio local desenvolvida para o mercado moçambicano. A plataforma transforma dados básicos de produtos e serviços em posts publicitários prontos a publicar (imagem 1080×1080, legenda, hashtags e botões de ação), associando a cada publicação um **manifesto de proveniência criptográfica (SHA-256)** armazenado no **Backblaze B2**.
+O **Boladas-ponto-com** é uma aplicação de geração de conteúdos publicitários e comércio local desenvolvida para o mercado moçambicano. A plataforma transforma dados básicos de produtos e serviços numa legenda, hashtags e chamada para ação prontas a publicar; quando o provedor tem quota, acrescenta uma imagem 1080×1080. Cada artefacto realmente produzido é associado a um **manifesto de proveniência criptográfica (SHA-256)** armazenado no **Backblaze B2**.
 
 A plataforma serve tanto vendedores individuais como empresas físicas (Farmácias, Ferragens, Boutiques, Mercados Populares e Serviços de Transporte), oferecendo um **Feed Social estilo Facebook/TikTok**, **Diretório Público de Empresas**, **Comparador de Preços em Meticais (MT) com Deteção de Proximidade Física via GPS** e **Messenger com Mediação da Plataforma (872599084)**.
 
@@ -40,14 +40,14 @@ A plataforma serve tanto vendedores individuais como empresas físicas (Farmáci
 A plataforma utiliza um pipeline multi-provider resiliente:
 - **Provedor Principal**: **Gemini via Vertex AI Express** (`gemini-2.5-flash-image` para imagem, `gemini-2.5-flash` para legenda e moderação visual).
 - **Provedor Fallback**: **GMICloud** (`seedream-5.0-lite` para imagem, `DeepSeek-V3` para texto).
-- **Resiliência contra Quota Exaurida (HTTP 429)**: Se os provedores de IA excederem o limite gratuito (`429 RESOURCE_EXHAUSTED`), a publicação **nunca falha**. O sistema ativa a legenda de recurso com base no briefing do utilizador, realiza a composição determinística com Pillow e armazena com sucesso os ficheiros no Backblaze B2 com estado `completed`.
+- **Resiliência contra Quota Exaurida (HTTP 429)**: se os provedores de IA excederem o limite, o sistema usa como legenda de reserva o texto fornecido pelo vendedor e publica sem imagem gerada. A ausência e o erro real ficam no manifesto. Quando existe imagem, o nome, preço e CTA são compostos deterministicamente com Pillow.
 
 ---
 
 ## ✨ Funcionalidades em Destaque
 
 1. **Diretório Público de Empresas (`/empresas`)**:
-   - Páginas completas com capas, logótipos, NUIT, localização, catálogo de produtos e gestores de lojas reais (ex.: *Farmácia Moçambique Vida, Ferragem Lendária Maputo, Moda & Estilo Boutique, Mercado Popular de Xipamanine, Transporte & Carga Expresso*).
+   - Páginas completas com capas, logótipos, localização, catálogo de produtos e gestores. A instalação local inclui empresas fictícias claramente identificadas como dados de demonstração.
 2. **Comparador de Preços & GPS Proximidade (`/comparar`)**:
    - Disponível depois do login, com comparação de preços em Meticais (`MT`) e integração com a API `navigator.geolocation` do navegador para calcular a distância exata em quilómetros (`🚗 1.2 km de distância`) até à loja física mais próxima.
 3. **Apresentação Pública + Feed Social Autenticado (`/` e `/explorar`)**:
@@ -105,3 +105,8 @@ Todos os 137 testes devem passar com sucesso (`100% pass`; o teste de integraç�
 - **Diagnóstico do Sistema**: `http://localhost:8000/estado`
 - **Diretório de Lojas**: `http://localhost:8000/empresas`
 - **Comparador de Preços & GPS (requer login)**: `http://localhost:8000/comparar`
+
+> **Bloqueio de submissão a resolver:** a URL Render anteriormente prevista devolve 404.
+> Não declarar um endereço como “working app” antes de publicar o HEAD atual e o testar numa
+> janela anónima. Depois do deploy, substituir os links localhost acima pela URL HTTPS,
+> adicionar as credenciais da conta de jurado e o link público do vídeo.

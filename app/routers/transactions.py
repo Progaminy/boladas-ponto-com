@@ -33,7 +33,7 @@ def start_transaction(request: Request, post_id: str, with_mediation: str | None
         return RedirectResponse("/entrar", status_code=303)
 
     post = db.get_post(post_id)
-    if post is None:
+    if not db.post_is_public(post):
         return RedirectResponse("/explorar", status_code=303)
 
     seller_id = post["user_id"]
@@ -171,7 +171,11 @@ def download_post_pdf(request: Request, post_id: str):
         return RedirectResponse("/entrar", status_code=303)
 
     post = db.get_post(post_id)
-    if post is None:
+    is_owner = post is not None and post["user_id"] == user["user_id"]
+    is_admin = bool(user["is_admin"])
+    if post is None or (
+        not db.post_is_public(post) and not is_owner and not is_admin
+    ):
         return RedirectResponse("/explorar", status_code=303)
 
     seller = db.get_user_by_id(post["user_id"])

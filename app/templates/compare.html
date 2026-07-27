@@ -12,14 +12,17 @@
 
   <form id="compareForm" method="get" action="/comparar" style="background: #1F2937; padding: 1.2rem; border-radius: 12px; border: 1px solid #374151; max-width: 850px; margin: 0 auto; display: flex; flex-direction: column; gap: 0.8rem;">
     <div style="display: flex; gap: 0.8rem; flex-wrap: wrap;">
-      <input type="text" name="q" value="{{ search_query }}" placeholder="Pesquisar produto (ex.: Cimento, Paracetamol, Capulana)..." style="flex: 2; min-width: 240px; padding: 0.75rem 1rem; border-radius: 8px; background: #111827; border: 1px solid #374151; color: #F9FAFB;" />
-      <select name="cat" style="flex: 1; min-width: 160px; padding: 0.75rem 1rem; border-radius: 8px; background: #111827; border: 1px solid #374151; color: #F9FAFB;">
+      <label for="compare-query" class="visually-hidden">Produto a pesquisar</label>
+      <input id="compare-query" type="text" name="q" value="{{ search_query }}" placeholder="Pesquisar produto (ex.: Cimento, Paracetamol, Capulana)..." style="flex: 2; min-width: 240px; padding: 0.75rem 1rem; border-radius: 8px; background: #111827; border: 1px solid #374151; color: #F9FAFB;" />
+      <label for="compare-category" class="visually-hidden">Categoria</label>
+      <select id="compare-category" name="cat" style="flex: 1; min-width: 160px; padding: 0.75rem 1rem; border-radius: 8px; background: #111827; border: 1px solid #374151; color: #F9FAFB;">
         <option value="">Todas as Categorias</option>
         {% for c in categories %}
-          <option value="{{ c.id }}" {% if c.id == selected_cat %}selected{% endif %}>{{ c.label }}</option>
+          <option value="{{ c.slug }}" {% if c.slug == selected_cat %}selected{% endif %}>{{ c.label }}</option>
         {% endfor %}
       </select>
-      <select name="sort" style="flex: 1; min-width: 170px; padding: 0.75rem 1rem; border-radius: 8px; background: #111827; border: 1px solid #374151; color: #F9FAFB;">
+      <label for="compare-sort" class="visually-hidden">Ordenação</label>
+      <select id="compare-sort" name="sort" style="flex: 1; min-width: 170px; padding: 0.75rem 1rem; border-radius: 8px; background: #111827; border: 1px solid #374151; color: #F9FAFB;">
         <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>💰 Menor Preço (MT)</option>
         <option value="distance_asc" {% if sort_by == 'distance_asc' %}selected{% endif %}>📍 Loja Mais Próxima (GPS)</option>
         <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>💎 Maior Preço</option>
@@ -32,7 +35,7 @@
 
     <div style="display: flex; gap: 0.8rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
       <button type="button" onclick="detectGPSLocation()" class="btn-secondary" style="padding: 0.6rem 1rem; font-size: 0.85rem; background: #374151; color: #F9FAFB;">
-        📡 <span id="gpsStatusText">{% if user_lat %}GPS Ativado ({{ user_lat }}, {{ user_lon }}){% else %}Usar Minha Localização GPS{% endif %}</span>
+        📡 <span id="gpsStatusText" role="status" aria-live="polite">{% if user_lat %}GPS Ativado ({{ user_lat }}, {{ user_lon }}){% else %}Usar Minha Localização GPS{% endif %}</span>
       </button>
       <button type="submit" class="btn-primary" style="padding: 0.7rem 1.6rem;">🔍 Comparar Preços</button>
     </div>
@@ -57,7 +60,7 @@
       <!-- Imagem do Produto -->
       <div style="width: 100px; height: 100px; border-radius: 10px; overflow: hidden; background: #111827; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
         {% if r['image_url'] %}
-          <img src="{{ r['image_url'] }}" alt="{{ r['theme'] }}" style="width: 100%; height: 100%; object-fit: cover;" />
+          <img src="{{ r['image_url'] }}" alt="{{ r['theme'] }}" loading="lazy" decoding="async" width="100" height="100" style="width: 100%; height: 100%; object-fit: cover;" />
         {% else %}
           <span style="font-size: 2.5rem;">📦</span>
         {% endif %}
@@ -71,9 +74,15 @@
           {% if r['seller_photo_url'] %}
             <img src="{{ r['seller_photo_url'] }}" alt="{{ r['store_name'] or r['business'] }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" />
           {% endif %}
-          <a href="/empresa/{{ r['business_id'] }}" style="color: #A855F7; font-weight: 600; text-decoration: none; font-size: 0.95rem;">
-            🏢 {{ r['store_name'] or r['business'] }}
-          </a>
+          {% if r['business_id'] %}
+            <a href="/empresa/{{ r['business_id'] }}" style="color: #A855F7; font-weight: 600; text-decoration: none; font-size: 0.95rem;">
+              🏢 {{ r['store_name'] or r['business'] }}
+            </a>
+          {% else %}
+            <a href="/utilizador/{{ r['user_id'] }}" style="color: #A855F7; font-weight: 600; text-decoration: none; font-size: 0.95rem;">
+              👤 {{ r['business'] }}
+            </a>
+          {% endif %}
         </div>
 
         <p class="muted" style="margin: 0.2rem 0; font-size: 0.85rem;">

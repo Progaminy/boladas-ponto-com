@@ -49,6 +49,7 @@ def test_provenance_schema_matches_contest_spec():
         prompt="a prompt",
         params={"aspect_ratio": "1:1"},
         source_url="https://gmi.example/img.png",
+        genblaze_manifest={"run_id": "run-image", "manifest_verified": True},
     )
     caption_result = CaptionResult(
         caption="Ferramentas de qualidade ao melhor preço.",
@@ -82,6 +83,9 @@ def test_provenance_schema_matches_contest_spec():
     assert doc["user_input"]["theme"] == data.theme
     assert doc["generation"]["genblaze_used"] is True
     assert doc["generation"]["prompt"] == image_result.prompt
+    assert doc["generation"]["genblaze_manifest"]["run_id"] == "run-image"
+    assert doc["generation"]["genblaze_manifests"]["image"]["run_id"] == "run-image"
+    assert doc["generation"]["genblaze_manifests"]["caption"] is None
     assert doc["files"]["image"]["b2_key"] == "posts/x/image.png"
     assert doc["files"]["image"]["sha256"] == "deadbeef"
     assert doc["files"]["caption"]["b2_key"] == "posts/x/caption.txt"
@@ -104,3 +108,47 @@ def test_caption_txt_contains_hashtags_with_hash_prefix():
     txt = build_caption_txt(caption_result)
     assert "#a" in txt and "#b" in txt
     assert "Compra já" in txt
+
+
+def test_caption_manifest_proves_genblaze_use_without_image():
+    data = _sample_input()
+    caption_result = CaptionResult(
+        caption="Ferramentas de qualidade ao melhor preço.",
+        call_to_action="Visita-nos já!",
+        hashtags=["ferragens", "maputo"],
+        provider="google-vertex-express",
+        model="gemini-2.5-flash",
+        raw_text="{...}",
+        prompt="gera uma legenda",
+        genblaze_manifest={
+            "run_id": "run-caption",
+            "manifest_verified": True,
+            "source_asset": {"media_type": "application/json"},
+        },
+    )
+    caption_file = UploadedFile(
+        key="posts/x/caption.txt",
+        content_type="text/plain",
+        size=10,
+        sha256="cafebabe",
+        url="https://fake-b2.example/posts/x/caption.txt",
+    )
+
+    doc = build_provenance(
+        post_id="x",
+        status="completed",
+        post_input=data,
+        image_result=None,
+        caption_result=caption_result,
+        image_file=None,
+        caption_file=caption_file,
+        image_skipped_reason="quota de imagem indisponível",
+    )
+
+    generation = doc["generation"]
+    assert generation["image_generated"] is False
+    assert generation["genblaze_used"] is True
+    assert generation["caption_prompt"] == "gera uma legenda"
+    assert generation["genblaze_manifest"]["run_id"] == "run-caption"
+    assert generation["genblaze_manifests"]["image"] is None
+    assert generation["genblaze_manifests"]["caption"]["run_id"] == "run-caption"

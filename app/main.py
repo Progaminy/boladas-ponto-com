@@ -14,6 +14,7 @@ from app.config import (
     APP_NAME,
     APP_VERSION,
     SESSION_SECRET_KEY,
+    SESSION_COOKIE_SECURE,
     b2_configured,
     gmi_configured,
     vertex_configured,
@@ -43,11 +44,17 @@ BASE_DIR = Path(__file__).resolve().parent
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    provenance.reset_verification_rate_limits()
     yield
 
 
 app = FastAPI(title=APP_NAME, version=APP_VERSION, lifespan=lifespan)
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY, same_site="lax")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET_KEY,
+    same_site="lax",
+    https_only=SESSION_COOKIE_SECURE,
+)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 app.include_router(ai_edit.router)

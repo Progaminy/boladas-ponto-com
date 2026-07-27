@@ -24,11 +24,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv()
+
 LARGURA, ALTURA = 1280, 720
 
 # Conta de demonstração criada por scripts/seed_exemplos.py
 EMAIL_DEMO = "ana@exemplo.boladas.mz"
 PASSWORD_DEMO = "boladas2026"
+PRODUTO_DEMO = "Mochila escolar colorida — demonstração ao vivo"
 
 
 def _pausa(segundos: float) -> None:
@@ -36,7 +41,9 @@ def _pausa(segundos: float) -> None:
     time.sleep(segundos)
 
 
-def gravar(url_base: str, saida: Path, com_login: bool) -> Path | None:
+def gravar(
+    url_base: str, saida: Path, com_login: bool, gerar_ao_vivo: bool
+) -> Path | None:
     from playwright.sync_api import sync_playwright
 
     saida.mkdir(parents=True, exist_ok=True)
@@ -224,104 +231,174 @@ def gravar(url_base: str, saida: Path, com_login: bool) -> Path | None:
 
             # 4. O que já existe publicado — o login já abriu o feed
             print("  → Explorar negócios")
-            _pausa(5)
-            rolar(4)
+            _pausa(3)
+            rolar(2)
 
-            # 5. Comparar produtos e preços — clique real na barra superior
+            # 5. Fluxo principal: criar um anúncio real ou abrir o exemplar
+            # previamente validado. A opção ao vivo consome uma chamada real de
+            # IA e grava novos objetos no B2, por isso exige flag explícita.
+            try:
+                from app import db
+                from app.routers.provenance import _load_provenance
+                from app.verify import verify_post_files
+
+                post_id_demo = None
+                if gerar_ao_vivo:
+                    apontar_e_clicar(".topbar nav a[href='/criar']", "Anunciar")
+                    pagina.wait_for_load_state("networkidle", timeout=20000)
+                    if "Criar post" not in pagina.locator("h1").inner_text():
+                        raise RuntimeError("O formulário de criação não foi aberto.")
+                    print("  → Criar anúncio real")
+                    _pausa(2)
+
+                    apontar_e_clicar("#business", "Produto")
+                    pagina.fill("#business", PRODUTO_DEMO)
+                    apontar_e_clicar("#description", "Descrição")
+                    pagina.fill(
+                        "#description",
+                        "Mochila leve e colorida, com alças ajustáveis e dois "
+                        "compartimentos para material escolar.",
+                    )
+                    apontar_e_clicar("#price_mt", "Preço")
+                    pagina.fill("#price_mt", "850")
+                    apontar_e_clicar("#location", "Localização")
+                    pagina.fill("#location", "Maputo, Alto-Maé")
+                    apontar_e_clicar("#contact", "Contacto")
+                    pagina.fill("#contact", "84 200 0001")
+                    _pausa(1)
+                    apontar_e_clicar("#submit-btn", "Gerar com Genblaze")
+                    print("  → Genblaze + B2 em execução real")
+                    # /perfil é um atalho e redireciona para
+                    # /utilizador/<id>; esperamos pelo parâmetro estável do
+                    # resultado, não por uma das duas rotas.
+                    pagina.wait_for_function(
+                        "() => new URL(location.href).searchParams.has('created')",
+                        timeout=180000,
+                    )
+                    pagina.wait_for_load_state("networkidle", timeout=20000)
+
+                    from urllib.parse import parse_qs, urlparse
+
+                    post_id_demo = parse_qs(urlparse(pagina.url).query).get(
+                        "created", [None]
+                    )[0]
+                    if not post_id_demo:
+                        raise RuntimeError("O redirect não informou o post criado.")
+                    _pausa(4)
+                    apontar_e_clicar(
+                        f"a[href='/posts/{post_id_demo}']", "Abrir anúncio criado"
+                    )
+                    pagina.wait_for_load_state("networkidle", timeout=20000)
+                else:
+                    # Exemplar real criado previamente por esta aplicação:
+                    # legenda via Pipeline Genblaze, caption/provenance no B2.
+                    candidatos = [
+                        row
+                        for row in db.list_public_posts(limit=100)
+                        if row["business"].startswith("Mochila escolar colorida")
+                        and row["provenance_key"]
+                    ]
+                    for post in candidatos:
+                        provenance, error = _load_provenance(post)
+                        if (
+                            error is None
+                            and provenance
+                            and provenance.get("generation", {}).get("genblaze_used")
+                            and verify_post_files(
+                                post["post_id"], provenance
+                            ).all_match
+                        ):
+                            post_id_demo = post["post_id"]
+                            break
+                    if not post_id_demo:
+                        raise RuntimeError(
+                            "Não existe um anúncio de demonstração com "
+                            "Genblaze e B2 verificáveis."
+                        )
+                    apontar_e_clicar(
+                        f"a[href='/posts/{post_id_demo}']", "Abrir anúncio comprovado"
+                    )
+                    pagina.wait_for_load_state("networkidle", timeout=20000)
+
+                post = db.get_post(post_id_demo)
+                provenance, fetch_error = _load_provenance(post)
+                report = (
+                    verify_post_files(post_id_demo, provenance)
+                    if provenance is not None
+                    else None
+                )
+                if post is None or post["status"] != "completed":
+                    raise RuntimeError("O anúncio da demo não ficou concluído.")
+                if fetch_error or not provenance:
+                    raise RuntimeError(f"Manifesto indisponível: {fetch_error}")
+                if not provenance["generation"].get("genblaze_used"):
+                    raise RuntimeError("O manifesto não comprova execução Genblaze.")
+                if report is None or not report.all_match:
+                    raise RuntimeError("Os ficheiros reais no B2 não conferem.")
+
+                _pausa(4)
+                rolar(2)
+                print("  → Anúncio real concluído")
+
+                # 6. A peça central: manifesto Genblaze + B2 e verificação verde.
+                apontar_e_clicar(
+                    "a[href$='/provenance']", "Ver Proveniência B2"
+                )
+                pagina.wait_for_load_state("networkidle", timeout=20000)
+                if "Proveniência" not in pagina.locator("h1").inner_text():
+                    raise RuntimeError("A página de proveniência não foi aberta.")
+                if "execução comprovada" not in pagina.locator("body").inner_text():
+                    raise RuntimeError("A UI não mostrou a prova Genblaze.")
+                _pausa(4)
+                print("  → Manifesto Genblaze real")
+                apontar_e_clicar("#verify-btn", "Verificar no B2")
+                pagina.wait_for_selector(
+                    "#verify-result.visible.ok", timeout=30000
+                )
+                if "correspondem exatamente" not in pagina.locator(
+                    "#verify-result"
+                ).inner_text():
+                    raise RuntimeError("A verificação B2 não ficou verde.")
+                print("  → SHA-256 verificado ao vivo no Backblaze B2")
+                _pausa(6)
+                rolar(2)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Cena de criação/proveniência falhou: {exc}"
+                ) from exc
+
+            # 7. Comparar produtos e preços — outro caso de uso completo.
             try:
                 apontar_e_clicar(
                     ".topbar nav a[href='/comparar']", "Comparar Preços e GPS"
                 )
                 pagina.wait_for_load_state("networkidle", timeout=20000)
                 print("  → Comparar preços")
-                _pausa(3)
+                _pausa(2)
                 apontar_e_clicar("input[name='q']", "Pesquisar produto")
                 pagina.fill("input[name='q']", "Cimento")
-                # Coordenadas de demonstração em Maputo. Evitam enviar os
-                # campos numéricos vazios e permitem mostrar a distância.
                 pagina.evaluate(
                     """() => {
                         document.querySelector('#latInput').value = '-25.9692';
                         document.querySelector('#lonInput').value = '32.5732';
                     }"""
                 )
-                _pausa(1)
                 apontar_e_clicar(
                     "#compareForm button[type='submit']", "Comparar Preços"
                 )
                 pagina.wait_for_load_state("networkidle", timeout=20000)
                 if pagina.get_by_text("Cimento Limpopo", exact=False).count() == 0:
-                    raise RuntimeError("A comparação não mostrou o resultado de cimento esperado.")
-                _pausa(4)
+                    raise RuntimeError(
+                        "A comparação não mostrou o cimento esperado."
+                    )
+                _pausa(5)
                 rolar(2)
             except Exception as exc:
-                raise RuntimeError(f"Comparador da demonstração falhou: {exc}") from exc
+                raise RuntimeError(
+                    f"Comparador da demonstração falhou: {exc}"
+                ) from exc
 
-            # 6. Um anúncio concreto — regresso ao feed por clique real
-            try:
-                apontar_e_clicar(".topbar nav a[href='/explorar']", "Voltar ao Feed")
-                pagina.wait_for_load_state("networkidle", timeout=20000)
-                print("  → Voltar ao feed")
-                _pausa(2)
-                # Prefere um anúncio que declare proveniência, para a cena
-                # seguinte poder mostrar a verificação real.
-                from app import db
-
-                seletor_post = None
-                for link in pagina.locator("a[href^='/posts/']").all():
-                    href = link.get_attribute("href") or ""
-                    partes = href.strip("/").split("/")
-                    if len(partes) == 2:
-                        post = db.get_post(partes[1])
-                        if (
-                            post is not None
-                            and post["theme"] == "Telemóvel Usado Samsung A12"
-                            and post["provenance_key"]
-                        ):
-                            seletor_post = f"a[href='{href}']"
-                            break
-                if seletor_post is None:
-                    raise RuntimeError(
-                        "O feed não contém o anúncio Samsung A12 com proveniência."
-                    )
-                apontar_e_clicar(seletor_post, "Ver Anúncio")
-                pagina.wait_for_load_state("networkidle", timeout=20000)
-                if "Telemóvel Usado Samsung A12" not in pagina.locator("h1").inner_text():
-                    raise RuntimeError("Foi aberto um anúncio diferente do Samsung A12.")
-                _pausa(4)
-                rolar(3)
-                print("  → Post individual")
-
-                # 7. A peça central: verificar contra o B2 ao vivo
-                botao = pagina.query_selector("a[href$='/provenance']")
-                if botao:
-                    apontar_e_clicar(
-                        "a[href$='/provenance']", "Ver Proveniência B2"
-                    )
-                    pagina.wait_for_load_state("networkidle", timeout=20000)
-                    if "Proveniência" not in pagina.locator("h1").inner_text():
-                        raise RuntimeError("A página de proveniência não foi aberta.")
-                    _pausa(3)
-                    print("  → Proveniência")
-                    verificar = pagina.query_selector("#verify-btn")
-                    if verificar:
-                        apontar_e_clicar("#verify-btn", "Verificar no B2")
-                        print("  → Verificação ao vivo contra o Backblaze B2")
-                        _pausa(9)  # a verificação vai mesmo buscar os ficheiros
-                    rolar(3)
-            except Exception as exc:
-                raise RuntimeError(f"Cena do anúncio/proveniência falhou: {exc}") from exc
-
-            # 8. Criar — clique real na barra superior
-            apontar_e_clicar(".topbar nav a[href='/criar']", "Anunciar")
-            pagina.wait_for_load_state("networkidle", timeout=20000)
-            if "Criar post" not in pagina.locator("h1").inner_text():
-                raise RuntimeError("O formulário de criação não foi aberto.")
-            print("  → Criar anúncio")
-            _pausa(5)
-            rolar(3)
-
-            # 9. Empresas e sócios — clique real na barra superior
+            # 8. Empresas e sócios — clique real na barra superior
             apontar_e_clicar(
                 ".topbar nav a[href='/empresa']", "Minhas empresas"
             )
@@ -350,6 +427,14 @@ def main() -> int:
     parser.add_argument(
         "--sem-login", action="store_true", help="grava só as páginas públicas"
     )
+    parser.add_argument(
+        "--gerar-ao-vivo",
+        action="store_true",
+        help=(
+            "submete um anúncio real durante a gravação; consome quota de IA "
+            "e grava novos objetos no B2"
+        ),
+    )
     args = parser.parse_args()
 
     import httpx
@@ -364,7 +449,12 @@ def main() -> int:
         )
         return 2
 
-    caminho = gravar(args.url, Path(args.saida), com_login=not args.sem_login)
+    caminho = gravar(
+        args.url,
+        Path(args.saida),
+        com_login=not args.sem_login,
+        gerar_ao_vivo=args.gerar_ao_vivo,
+    )
     if caminho is None:
         print("A gravação não produziu ficheiro.", file=sys.stderr)
         return 1

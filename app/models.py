@@ -11,6 +11,14 @@ class PostStatus(str, Enum):
     FAILED = "failed"
 
 
+class ListingStatus(str, Enum):
+    """Disponibilidade comercial de um anúncio já processado."""
+
+    ACTIVE = "active"
+    PAUSED = "paused"
+    SOLD = "sold"
+
+
 class PublisherType(str, Enum):
     BUSINESS = "business"  # empresa/marca com nome próprio
     INDIVIDUAL = "individual"  # utilizador simples, sem marca
@@ -77,6 +85,7 @@ class BusinessInput(BaseModel):
 class PostRecord(BaseModel):
     post_id: str
     status: PostStatus
+    listing_status: ListingStatus = ListingStatus.ACTIVE
     theme: str
     business: str
     category: str

@@ -8,7 +8,13 @@ import json
 import pytest
 from PIL import Image
 
-from app.pipeline import GenerationError, _parse_caption_json, _to_square_png, generate_caption, generate_image
+from app.pipeline import (
+    GenerationError,
+    _parse_caption_json,
+    _to_square_png,
+    generate_caption,
+    generate_image,
+)
 
 
 def test_to_square_png_produces_exact_size():
@@ -81,6 +87,84 @@ def test_image_falls_back_to_gmicloud_when_vertex_fails(monkeypatch):
     assert tentativas == ["vertex", "gmicloud"]
     assert "sem acesso ao Vertex" in str(exc.value)
     assert "sem saldo GMICloud" in str(exc.value)
+
+
+def test_vertex_caption_runs_inside_genblaze_pipeline(monkeypatch):
+    from app import pipeline
+    from app.gemini_provider import VertexExpressTextProvider
+    from genblaze_core.models.manifest import Manifest
+
+    raw = json.dumps(
+        {
+            "caption": "Ferramentas prontas para a sua obra.",
+            "call_to_action": "Compra já!",
+            "hashtags": ["ferragens", "maputo"],
+        }
+    )
+    monkeypatch.setattr(pipeline, "VERTEX_EXPRESS_API_KEY", "test-key")
+    monkeypatch.setattr(
+        VertexExpressTextProvider,
+        "_generate_raw",
+        lambda self, step: (
+            raw,
+            {"google_vertex_express": {"model": step.model}},
+            None,
+        ),
+    )
+
+    result = pipeline._generate_caption_vertex(
+        _dummy_input(), pipeline.build_caption_prompt(_dummy_input(), _dummy_category())
+    )
+
+    manifest = result.genblaze_manifest
+    assert result.caption == "Ferramentas prontas para a sua obra."
+    assert result.provider == "google-vertex-express"
+    assert result.prompt
+    assert manifest["manifest_verified"] is True
+    assert manifest["source_asset"]["media_type"] == "application/json"
+    assert manifest["native"]["run"]["steps"][0]["modality"] == "text"
+    assert manifest["native"]["run"]["steps"][0]["provider"] == "google-vertex-express"
+    assert (
+        manifest["native"]["run"]["steps"][0]["assets"][0]["url"]
+        == "redacted://asset-url"
+    )
+    assert manifest["native"]["run"]["steps"][0]["provider_payload"] == {}
+    assert Manifest.model_validate(manifest["native"]).verify() is True
+    assert manifest["native_redacted"] is True
+
+
+def test_gmicloud_caption_runs_inside_genblaze_pipeline(monkeypatch):
+    from app import pipeline
+    from app.gemini_provider import GMICloudTextProvider
+
+    raw = json.dumps(
+        {
+            "caption": "Uma oferta local para si.",
+            "call_to_action": "Contacta-nos!",
+            "hashtags": ["boladas", "mocambique"],
+        }
+    )
+    monkeypatch.setattr(pipeline, "GMI_API_KEY", "test-key")
+    monkeypatch.setattr(
+        GMICloudTextProvider,
+        "_generate_raw",
+        lambda self, step: (
+            raw,
+            {"gmicloud": {"model": step.model}},
+            None,
+        ),
+    )
+
+    result = pipeline._generate_caption_gmi(
+        _dummy_input(), pipeline.build_caption_prompt(_dummy_input(), _dummy_category())
+    )
+
+    manifest = result.genblaze_manifest
+    assert result.caption == "Uma oferta local para si."
+    assert result.provider == "gmicloud"
+    assert manifest["manifest_verified"] is True
+    assert manifest["native"]["run"]["steps"][0]["modality"] == "text"
+    assert manifest["native"]["run"]["steps"][0]["provider"] == "gmicloud"
 
 
 def _dummy_input():

@@ -111,6 +111,38 @@ def test_verify_ignores_entries_without_hash(fake_b2):
     assert report.all_match is False
 
 
+def test_verify_rejects_key_outside_post_prefix_without_downloading(fake_b2):
+    secret_key = "users/another-user/profile.jpg"
+    fake_b2.put(secret_key, b"private")
+    provenance = {
+        "files": {
+            "caption": {
+                "b2_key": secret_key,
+                "sha256": sha256_hex(b"private"),
+            }
+        }
+    }
+
+    report = verify_post_files("post-verify", provenance)
+
+    assert report.all_match is False
+    assert report.files[0].actual_sha256 is None
+    assert "prefixo permitido" in report.files[0].error
+
+
+def test_verify_rejects_oversized_object_before_downloading(fake_b2, monkeypatch):
+    from app import verify
+
+    class TooLargeMeta:
+        size = verify.MAX_VERIFIABLE_FILE_BYTES + 1
+
+    monkeypatch.setattr(fake_b2, "head", lambda key, **kwargs: TooLargeMeta())
+    report = verify_post_files("post-verify", PROVENANCE)
+
+    assert report.all_match is False
+    assert all("limite de segurança" in f.error for f in report.files)
+
+
 # --- endpoint HTTP -----------------------------------------------------------
 
 @pytest.fixture
@@ -185,3 +217,66 @@ def test_verify_endpoint_is_public(client, fake_b2):
 def test_verify_endpoint_404_for_unknown_post(client, fake_b2):
     resp = client.post("/posts/nao-existe/verificar")
     assert resp.status_code == 404
+
+
+def test_verify_endpoint_rejects_manifest_for_another_post(client, fake_b2):
+    _seed_completed_post(client, fake_b2)
+    wrong = dict(PROVENANCE)
+    wrong["post_id"] = "outro-post"
+    fake_b2.put(
+        "posts/post-verify/provenance.json",
+        json.dumps(wrong).encode("utf-8"),
+    )
+
+    resp = client.post("/posts/post-verify/verificar")
+
+    assert resp.status_code == 422
+    assert "não corresponde" in resp.json()["error"]
+
+
+def test_verify_endpoint_rate_limits_repeated_downloads(client, fake_b2):
+    _seed_completed_post(client, fake_b2)
+
+    for _ in range(5):
+        assert client.post("/posts/post-verify/verificar").status_code == 200
+    limited = client.post("/posts/post-verify/verificar")
+
+    assert limited.status_code == 429
+    assert int(limited.headers["retry-after"]) >= 1
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        ("moderation_status", "reported"),
+        ("listing_status", "paused"),
+        ("status", "failed"),
+    ],
+)
+def test_hidden_or_incomplete_post_has_no_public_provenance(
+    client, fake_b2, column, value
+):
+    _seed_completed_post(client, fake_b2)
+    with db_module.get_conn() as conn:
+        conn.execute(
+            f"UPDATE posts SET {column} = ? WHERE post_id = ?",
+            (value, "post-verify"),
+        )
+    client.post("/sair", follow_redirects=False)
+
+    page = client.get("/posts/post-verify/provenance")
+    verification = client.post("/posts/post-verify/verificar")
+
+    assert page.status_code == 404
+    assert verification.status_code == 404
+
+
+def test_provenance_script_never_injects_manifest_values_with_inner_html(
+    client, fake_b2
+):
+    _seed_completed_post(client, fake_b2)
+    page = client.get("/posts/post-verify/provenance")
+
+    assert page.status_code == 200
+    assert "innerHTML" not in page.text
+    assert "textContent" in page.text

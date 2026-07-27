@@ -6,7 +6,14 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from app.config import DB_PATH
-from app.models import BusinessInput, PostInput, PostStatus
+from app.models import BusinessInput, ListingStatus, PostInput, PostStatus
+
+LISTING_STATUS_VALUES = frozenset(status.value for status in ListingStatus)
+LEGACY_LISTING_STATUS_MAP = {
+    "ativo": ListingStatus.ACTIVE.value,
+    "pendente": ListingStatus.PAUSED.value,
+    "vendido": ListingStatus.SOLD.value,
+}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -134,7 +141,9 @@ CREATE TABLE IF NOT EXISTS posts (
     provenance_key TEXT,
     thumbnail_key TEXT,
     image_url TEXT,
-    moderation_status TEXT NOT NULL DEFAULT 'approved'
+    moderation_status TEXT NOT NULL DEFAULT 'approved',
+    listing_status TEXT NOT NULL DEFAULT 'active'
+        CHECK (listing_status IN ('active', 'paused', 'sold'))
 );
 
 CREATE TABLE IF NOT EXISTS post_reactions (
@@ -175,6 +184,46 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) 
     existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
     if column not in existing:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
+def _migrate_legacy_listing_statuses(conn: sqlite3.Connection) -> None:
+    """Separa disponibilidade comercial que versões antigas guardavam em
+    ``posts.status``.
+
+    ``status`` volta a descrever exclusivamente o pipeline. Os três valores
+    portugueses eram estados comerciais aplicados apenas depois da publicação,
+    portanto migram para ``listing_status`` e recuperam ``completed``.
+    """
+    for legacy_value, listing_value in LEGACY_LISTING_STATUS_MAP.items():
+        conn.execute(
+            """
+            UPDATE posts
+            SET status = ?, listing_status = ?
+            WHERE status = ?
+            """,
+            (PostStatus.COMPLETED.value, listing_value, legacy_value),
+        )
+
+    # Suporta uma eventual versão intermédia que já tivesse criado a coluna,
+    # mas continuasse a gravar nela os nomes portugueses.
+    for legacy_value, listing_value in LEGACY_LISTING_STATUS_MAP.items():
+        conn.execute(
+            "UPDATE posts SET listing_status = ? WHERE listing_status = ?",
+            (listing_value, legacy_value),
+        )
+
+    # Uma coluna antiga sem CHECK não deve deixar estados desconhecidos
+    # escaparem para as consultas públicas.
+    placeholders = ", ".join("?" for _ in LISTING_STATUS_VALUES)
+    conn.execute(
+        f"""
+        UPDATE posts
+        SET listing_status = ?
+        WHERE listing_status IS NULL
+           OR listing_status NOT IN ({placeholders})
+        """,
+        (ListingStatus.ACTIVE.value, *sorted(LISTING_STATUS_VALUES)),
+    )
 
 
 def _ensure_businesses_allow_multiple(conn: sqlite3.Connection) -> None:
@@ -222,12 +271,20 @@ def init_db() -> None:
         _ensure_column(
             conn, "posts", "moderation_status", "moderation_status TEXT NOT NULL DEFAULT 'approved'"
         )
+        _ensure_column(
+            conn,
+            "posts",
+            "listing_status",
+            "listing_status TEXT NOT NULL DEFAULT 'active' "
+            "CHECK (listing_status IN ('active', 'paused', 'sold'))",
+        )
         _ensure_column(conn, "posts", "description", "description TEXT")
         _ensure_column(conn, "posts", "description_source", "description_source TEXT")
         _ensure_column(conn, "posts", "image_skipped_reason", "image_skipped_reason TEXT")
         _ensure_column(conn, "posts", "latitude", "latitude REAL")
         _ensure_column(conn, "posts", "longitude", "longitude REAL")
         _ensure_column(conn, "posts", "currency", "currency TEXT NOT NULL DEFAULT 'MZN'")
+        _migrate_legacy_listing_statuses(conn)
         _backfill_business_owners(conn)
         seed_demo_stores_if_needed(conn)
 
@@ -462,15 +519,17 @@ def create_post(post_id: str, user_id: str, business_id: str | None, data: PostI
         conn.execute(
             """
             INSERT INTO posts (
-                post_id, user_id, business_id, status, created_at, updated_at, error,
+                post_id, user_id, business_id, status, listing_status,
+                created_at, updated_at, error,
                 theme, business, category, publisher_type, brand_name,
                 target_audience, objective, tone, language, call_to_action_input,
                 price_mt, currency, location, contact, color_reference,
                 description, description_source
-            ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                post_id, user_id, business_id, PostStatus.PENDING.value, now, now,
+                post_id, user_id, business_id, PostStatus.PENDING.value,
+                ListingStatus.ACTIVE.value, now, now,
                 data.theme, data.business, data.category, data.publisher_type.value,
                 data.brand_name, data.target_audience, data.objective, data.tone,
                 data.language, data.call_to_action, data.price_mt, getattr(data, "currency", "MZN") or "MZN", data.location,
@@ -488,6 +547,33 @@ def update_status(post_id: str, status: PostStatus | str, error: str | None = No
             "UPDATE posts SET status = ?, error = ?, updated_at = ? WHERE post_id = ?",
             (val, error, _now(), post_id),
         )
+
+
+def update_listing_status(
+    post_id: str, listing_status: ListingStatus | str
+) -> None:
+    """Atualiza apenas a disponibilidade de um post cujo pipeline terminou."""
+    value = (
+        listing_status.value
+        if isinstance(listing_status, ListingStatus)
+        else str(listing_status)
+    )
+    if value not in LISTING_STATUS_VALUES:
+        raise ValueError("Estado de disponibilidade inválido.")
+
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            UPDATE posts
+            SET listing_status = ?, updated_at = ?
+            WHERE post_id = ? AND status = ?
+            """,
+            (value, _now(), post_id, PostStatus.COMPLETED.value),
+        )
+        if cur.rowcount != 1:
+            raise ValueError(
+                "A disponibilidade só pode ser alterada depois de o post estar concluído."
+            )
 
 
 def save_generation_result(
@@ -692,6 +778,19 @@ def get_post(post_id: str) -> sqlite3.Row | None:
         return cur.fetchone()
 
 
+def post_is_public(row) -> bool:
+    """Regra única para exposição e ações públicas sobre um anúncio."""
+    if row is None:
+        return False
+    keys = row.keys() if hasattr(row, "keys") else row
+    listing_status = row["listing_status"] if "listing_status" in keys else "active"
+    return (
+        row["status"] == PostStatus.COMPLETED.value
+        and row["moderation_status"] == "approved"
+        and listing_status == ListingStatus.ACTIVE.value
+    )
+
+
 def count_posts_by_user_since(user_id: str, since_iso: str) -> int:
     with get_conn() as conn:
         cur = conn.execute(
@@ -714,7 +813,8 @@ def list_posts_by_business(business_id: str, limit: int = 50) -> list[sqlite3.Ro
     with get_conn() as conn:
         cur = conn.execute(
             "SELECT * FROM posts WHERE business_id = ? AND status = 'completed' "
-            "AND moderation_status = 'approved' ORDER BY created_at DESC LIMIT ?",
+            "AND moderation_status = 'approved' AND listing_status = 'active' "
+            "ORDER BY created_at DESC LIMIT ?",
             (business_id, limit),
         )
         return cur.fetchall()
@@ -724,7 +824,8 @@ def list_public_individual_posts_by_user(user_id: str, limit: int = 50) -> list[
     with get_conn() as conn:
         cur = conn.execute(
             "SELECT * FROM posts WHERE user_id = ? AND business_id IS NULL AND status = 'completed' "
-            "AND moderation_status = 'approved' ORDER BY created_at DESC LIMIT ?",
+            "AND moderation_status = 'approved' AND listing_status = 'active' "
+            "ORDER BY created_at DESC LIMIT ?",
             (user_id, limit),
         )
         return cur.fetchall()
@@ -739,7 +840,9 @@ def list_public_posts(
     FROM posts p
     LEFT JOIN users u ON p.user_id = u.user_id
     LEFT JOIN businesses b ON p.business_id = b.business_id
-    WHERE p.status = 'completed' AND p.moderation_status = 'approved'
+    WHERE p.status = 'completed'
+      AND p.moderation_status = 'approved'
+      AND p.listing_status = 'active'
     """
     params: list = []
     if category:
@@ -944,7 +1047,14 @@ def list_all_businesses(category: str | None = None, search: str | None = None) 
         query = """
             SELECT b.*,
                    u.display_name AS owner_name,
-                   (SELECT COUNT(*) FROM posts p WHERE p.business_id = b.business_id AND p.moderation_status = 'approved') AS product_count,
+                   (
+                       SELECT COUNT(*)
+                       FROM posts p
+                       WHERE p.business_id = b.business_id
+                         AND p.status = 'completed'
+                         AND p.moderation_status = 'approved'
+                         AND p.listing_status = 'active'
+                   ) AS product_count,
                    (SELECT COUNT(*) FROM business_members bm WHERE bm.business_id = b.business_id) AS member_count
             FROM businesses b
             JOIN users u ON u.user_id = b.user_id
@@ -984,7 +1094,9 @@ def compare_prices_and_proximity(
             FROM posts p
             LEFT JOIN businesses b ON b.business_id = p.business_id
             LEFT JOIN users u ON u.user_id = p.user_id
-            WHERE p.moderation_status = 'approved'
+            WHERE p.status = 'completed'
+              AND p.moderation_status = 'approved'
+              AND p.listing_status = 'active'
         """
         params = []
         if search_query and search_query.strip():

@@ -1,76 +1,121 @@
-# Roteiro do Vídeo de Demonstração — Boladas-ponto-com
+# Roteiro do vídeo de demonstração — Boladas-ponto-com
 
-**Duração Estimada**: ~2 minutos e 30 segundos a 3 minutos  
-**Objetivo**: Apresentar aos jurados do **Backblaze Generative Media Hackathon** o funcionamento prático da aplicação, a integração profunda com o **Backblaze B2**, o **SDK Genblaze**, a resiliência de IA e a proveniência verificável.
+**Vídeo:** `demo/boladas-demo.webm`
+**Duração real:** 1 minuto e 58,96 segundos
+**Formato:** 1280 × 720, WebM, sem áudio
+**Cliques destacados:** 13 de 13, todos com seta amarela
 
----
+Os tempos seguem a gravação com tolerância aproximada de meio segundo para
+as transições entre páginas.
 
-## 🎬 Visão Geral do Roteiro
+## Narração sincronizada
 
-| Cenas | Tempo | Foco Principal |
-| :--- | :--- | :--- |
-| **Cena 1: Introdução & Problema** | 0:00 - 0:25 | Apresentação do projeto e contexto do comércio em Moçambique |
-| **Cena 2: Feed Social & Lojas Reais** | 0:25 - 0:55 | Navegação no Feed (`/explorar`) e Diretório de Empresas (`/empresas`) |
-| **Cena 3: Comparador de Preços com GPS** | 0:55 - 1:25 | Deteção de proximidade física e comparação em Meticais (`/comparar`) |
-| **Cena 4: Geração de Post & Genblaze SDK** | 1:25 - 1:55 | Criação do anúncio com Gemini Vertex AI + composição determinística |
-| **Cena 5: Proveniência B2 & Diagnóstico** | 1:55 - 2:25 | Verificação SHA-256 ao vivo no Backblaze B2 e `/estado` |
-| **Cena 6: Conclusão & Call to Action** | 2:25 - 2:40 | Encerramento e links para o repositório |
+### 0:00–0:13 — Apresentação pública
 
----
+**Visual:** marca “Boladas-ponto-com”, slogan “Do zero ao infinito.”,
+explicação do funcionamento, princípio “Nunca fingir”, categorias e confiança
+entre comprador e vendedor.
 
-## 📜 Roteiro Detalhado (Cena por Cena)
+**Narração:**
 
-### 🎬 Cena 1: Introdução & Apresentação (0:00 - 0:25)
-- **Visual**: Ecrã inicial da plataforma `http://localhost:8000/` com o logo e slogan *"Crie posts. Guarde a origem."*
-- **Texto no Ecrã (Overlay)**: `Boladas-ponto-com | Backblaze Generative Media Hackathon`
-- **Voz de Narração**:
-  > *"Olá a todos! Este é o Boladas-ponto-com, uma plataforma de geração de posts publicitários, comércio local e proveniência digital criada para o Backblaze Generative Media Hackathon.*
-  > *Em Moçambique, pequenas empresas e vendedores locais precisam de criar anúncios atraentes para redes sociais, mas com a garantia de que as suas marcas e conteúdos são autênticos e verificáveis."*
+> Este é o Boladas-ponto-com. Do zero ao infinito. Antes do login, a página pública apresenta a proposta: criar anúncios com inteligência artificial e conservar uma origem verificável no Backblaze B2.
 
----
+### 0:13–0:22.5 — Termos e entrada
 
-### 🎬 Cena 2: Feed Social & Diretório de Empresas (0:25 - 0:55)
-- **Visual**: Scroll pelo Feed Social (`/explorar`), mostrando cartões com fotos, avatares, reações (👍 / 👎) e botões de contacto. Depois, clique em `🏢 Lojas & Empresas` (`/empresas`).
-- **Texto no Ecrã (Overlay)**: `Feed Social & Montras de Empresas Reais`
-- **Voz de Narração**:
-  > *"Ao entrar na aplicação, os utilizadores navegam diretamente num Feed Social dinâmico estilo Facebook. No Diretório de Empresas, encontramos montras profissionais de negócios reais, como a Farmácia Moçambique Vida, Ferragem Lendária Maputo, Moda & Estilo e Mercado Popular de Xipamanine — cada uma com capa, logótipo, NUIT, catálogo de produtos e gestores registados."*
+**Visual:** seta em “Termos de Uso”, leitura da página e seta no link “Entrar”.
 
----
+**Narração:**
 
-### 🎬 Cena 3: Comparador de Preços & GPS Proximidade (0:55 - 1:25)
-- **Visual**: Aceder a `/comparar`, escrever "Cimento" no campo de busca e clicar no botão `📡 Usar Minha Localização GPS`. Mostrar a ordenação por distância (`🚗 1.2 km de distância`) e menor preço em Meticais (`MT`).
-- **Texto no Ecrã (Overlay)**: `Comparador de Preços em MT + GPS Proximidade (Fórmula Haversine)`
-- **Voz de Narração**:
-  > *"Na secção Comparar Preços, qualquer comprador pode pesquisar por um produto — como Cimento ou Paracetamol — e ativar a Geolocalização GPS do seu telemóvel.*
-  > *A aplicação calcula instantaneamente a distância exata em quilómetros até à loja física mais próxima e ordena pelos menores preços em Meticais, facilitando compras presenciais imediatas."*
+> Abrimos os Termos de Uso, que explicam responsabilidades, conteúdo permitido e pagamentos diretos. Depois selecionamos Entrar.
 
----
+### 0:22.5–0:35 — Autenticação
 
-### 🎬 Cena 4: Criar Post com IA & Genblaze SDK (1:25 - 1:55)
-- **Visual**: Aceder a `/postar`, preencher o briefing (Produto: "Saco de Cimento Limpopo 50kg", Preço: "650 MT", Categoria: "Ferragem"). Clicar em `Gerar com IA`. Mostrar a barra de progresso e o resultado final com a imagem 1080×1080 composta com Pillow.
-- **Texto no Ecrã (Overlay)**: `Genblaze SDK + Gemini Vertex AI Express + Pillow Overlay`
-- **Voz de Narração**:
-  > *"Ao criar um post, o nosso motor utiliza o SDK oficial Genblaze com o Gemini Vertex AI Express como provedor principal e GMICloud como fallback. Se a quota de IA for atingida, a nossa arquitetura resiliente completa o post sem nunca bloquear a publicação, sobrepondo o preço e a chamada para ação com Pillow."*
+**Visual:** setas no campo de email, no campo da password e no botão “Entrar”.
 
----
+**Narração:**
 
-### 🎬 Cena 5: Verificação de Proveniência ao Vivo no Backblaze B2 (1:55 - 2:25)
-- **Visual**: Na página do post gerado, clicar no separador *Verificar Proveniência*. Clicar no botão `Verificar contra o Backblaze B2 agora`. Mostrar a verificação verde dos hashes SHA-256 (`image.png`, `caption.txt`, `provenance.json`). Abrir rapidamente `/estado` para mostrar a saúde real dos serviços.
-- **Texto no Ecrã (Overlay)**: `Verificação Criptográfica SHA-256 em Tempo Real no Backblaze B2`
-- **Voz de Narração**:
-  > *"A nossa garantia é o princípio 'Nunca Fingir'. No Backblaze B2, guardamos a imagem, a legenda e o manifesto de proveniência com SHA-256. Qualquer pessoa pode clicar em 'Verificar contra o Backblaze B2 agora' e a aplicação descarrega os bytes do bucket em tempo real para auditabilidade total."*
+> No formulário, indicamos o email e a password da conta de demonstração. O feed só é aberto depois da autenticação.
 
----
+### 0:35–0:54.5 — Feed autenticado
 
-### 🎬 Cena 6: Conclusão & Encerramento (2:25 - 2:40)
-- **Visual**: Mostrar a página inicial com links para a documentação e o repositório GitHub `github.com/Progaminy/boladas-ponto-com`.
-- **Texto no Ecrã (Overlay)**: `Obrigado! Repositório: github.com/Progaminy/boladas-ponto-com`
-- **Voz de Narração**:
-  > *"O Boladas-ponto-com traz transparência, inteligência artificial e comércio local de alto impacto para Moçambique com a infraestrutura robusta do Backblaze B2. Muito obrigado!"*
+**Visual:** feed completo da utilizadora Ana Machava, filtros, cartões, interações
+e navegação privada; no fim, seta em “Comparar Preços & GPS”.
 
----
+**Narração:**
 
-## 🎥 Dicas Rápidas para a Gravação
-1. **Ferramenta de Gravação**: Podes usar **OBS Studio**, **Loom** ou a gravação nativa do sistema operativo (1080p).
-2. **Áudio**: Grava a narração com um microfone claro e sem ruído de fundo.
-3. **Navegador**: Abre em modo de ecrã inteiro (F11) ou janela limpa para destacar a interface visual.
+> Agora, autenticada como Ana Machava, a conta mostra o feed completo, com filtros, preços, localização, reações, comentários e opções privadas para anunciar, gerir empresas, mensagens e transações. Em seguida, abrimos o comparador.
+
+### 0:54.5–1:03.7 — Pesquisa por cimento
+
+**Visual:** seta no campo de pesquisa, texto “Cimento”, coordenadas de Maputo e
+seta no botão “Comparar Preços”.
+
+**Narração:**
+
+> Pesquisamos por cimento, mantemos a ordenação por menor preço e usamos coordenadas de Maputo para calcular proximidade.
+
+### 1:03.7–1:11.2 — Resultados
+
+**Visual:** cimento por 480 MT e 620 MT; transporte de materiais por 2.500 MT;
+distância GPS em parte das ofertas.
+
+**Narração:**
+
+> Cimento custa 480 e 620 Meticais; transporte, 2.500. Algumas ofertas exibem distância GPS.
+
+### 1:11.2–1:18.5 — Voltar ao feed e abrir anúncio
+
+**Visual:** seta em “Voltar ao Feed”, retorno aos cartões e seta em
+“Ver Anúncio” no Samsung A12.
+
+**Narração:**
+
+> Voltamos ao feed autenticado e abrimos o anúncio do Telemóvel Usado Samsung A12.
+
+### 1:18.5–1:31 — Detalhes do anúncio
+
+**Visual:** anúncio concluído do Samsung A12, descrição, preço de 6.500 MT,
+contacto, assistência, comentários e seta em “Ver Proveniência B2”.
+
+**Narração:**
+
+> O anúncio apresenta descrição, preço de 6.500 Meticais, contacto, assistência e comentários. Depois escolhemos Ver Proveniência B2.
+
+### 1:31–1:40.7 — Tentativa de obter a proveniência
+
+**Visual:** pedido de `provenance.json` ao Backblaze B2, erro real
+`Key not found` e seta em “Anunciar”.
+
+**Narração:**
+
+> A aplicação procura o manifesto no Backblaze B2. Neste ambiente, o objeto não existe; o erro Key not found aparece sem simular sucesso.
+
+### 1:40.7–1:52.3 — Formulário para anunciar
+
+**Visual:** formulário de criação, sem submissão; no fim, seta em
+“Minhas empresas”.
+
+**Narração:**
+
+> Em Anunciar, o formulário recolhe produto, descrição, preço, localização e contacto, sem publicar nada nesta demonstração. Depois abrimos Minhas empresas.
+
+### 1:52.3–1:58.96 — Empresa da conta
+
+**Visual:** “Farmácia Vida Nova”, com os links “Ver perfil” e “Editar”.
+
+**Narração:**
+
+> A conta mostra a Farmácia Vida Nova, com opções para ver o perfil e editar.
+
+## Texto curto para a descrição do vídeo
+
+> Demonstração do Boladas-ponto-com: apresentação pública antes do login, feed e comparador protegidos por autenticação, comparação de preços com GPS, anúncio Samsung A12, tentativa transparente de obter a proveniência no Backblaze B2, formulário de publicação e gestão de empresa. Uma seta amarela identifica cada clique.
+
+## Nota de edição
+
+O vídeo foi gravado sem áudio. Para juntar uma faixa chamada `voz.mp3`:
+
+```bash
+ffmpeg -i demo/boladas-demo.webm -i voz.mp3 \
+  -c:v copy -c:a libopus -shortest demo/boladas-demo-narrado.webm
+```

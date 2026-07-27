@@ -1,14 +1,68 @@
 import json
+import math
+import time
+from collections import defaultdict, deque
+from threading import Lock
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from app import db
+from app.auth import get_current_user
 from app.storage import get_backend
 from app.templating import templates
 from app.verify import verify_post_files
 
 router = APIRouter()
+
+_VERIFY_WINDOW_SECONDS = 60
+_VERIFY_MAX_PER_WINDOW = 5
+_verify_attempts: dict[str, deque[float]] = defaultdict(deque)
+_verify_lock = Lock()
+
+
+def reset_verification_rate_limits() -> None:
+    """Limpa apenas contadores efémeros (útil num restart e em testes)."""
+    with _verify_lock:
+        _verify_attempts.clear()
+
+
+def _rate_limit_verification(request: Request) -> int | None:
+    """Devolve segundos até nova tentativa, ou None quando é permitido."""
+    host = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    cutoff = now - _VERIFY_WINDOW_SECONDS
+    with _verify_lock:
+        attempts = _verify_attempts[host]
+        while attempts and attempts[0] <= cutoff:
+            attempts.popleft()
+        if len(attempts) >= _VERIFY_MAX_PER_WINDOW:
+            return max(1, math.ceil(_VERIFY_WINDOW_SECONDS - (now - attempts[0])))
+        attempts.append(now)
+    return None
+
+
+def _can_access_post(row, request: Request) -> bool:
+    user = get_current_user(request)
+    if user is not None and (
+        user["user_id"] == row["user_id"] or bool(user["is_admin"])
+    ):
+        return True
+    return db.post_is_public(row)
+
+
+def _hidden_post_response(request: Request, post_id: str):
+    return templates.TemplateResponse(
+        request,
+        "provenance.html",
+        {
+            "post_id": post_id,
+            "post": None,
+            "provenance": None,
+            "fetch_error": "Post não encontrado.",
+        },
+        status_code=404,
+    )
 
 
 def _load_provenance(row) -> tuple[dict | None, str | None]:
@@ -29,11 +83,11 @@ def provenance_page(request: Request, post_id: str):
     # qualquer pessoa (incluindo os jurados) sem precisar de conta.
     row = db.get_post(post_id)
     if row is None:
-        return templates.TemplateResponse(
-            request, "provenance.html",
-            {"post_id": post_id, "post": None, "provenance": None, "fetch_error": "Post não encontrado."},
-            status_code=404,
-        )
+        return _hidden_post_response(request, post_id)
+    if not _can_access_post(row, request):
+        # Para visitantes, um post bloqueado/incompleto é indistinguível de
+        # um ID inexistente. O dono e um admin continuam a poder diagnosticá-lo.
+        return _hidden_post_response(request, post_id)
 
     provenance, fetch_error = _load_provenance(row)
     return templates.TemplateResponse(
@@ -44,17 +98,35 @@ def provenance_page(request: Request, post_id: str):
 
 
 @router.post("/posts/{post_id}/verificar")
-def verify_now(post_id: str):
+def verify_now(request: Request, post_id: str):
     """Verificação ao vivo: vai buscar os bytes reais ao B2 neste momento e
     recalcula o SHA-256, comparando com o que o manifesto afirma. É isto que
     torna a proveniência auditável em vez de decorativa."""
     row = db.get_post(post_id)
-    if row is None:
+    if row is None or not _can_access_post(row, request):
         return JSONResponse({"error": "Post não encontrado."}, status_code=404)
+
+    retry_after = _rate_limit_verification(request)
+    if retry_after is not None:
+        return JSONResponse(
+            {
+                "error": (
+                    "Muitas verificações num curto período. "
+                    "Tenta novamente dentro de instantes."
+                )
+            },
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+        )
 
     provenance, fetch_error = _load_provenance(row)
     if provenance is None:
         return JSONResponse({"error": fetch_error}, status_code=502)
+    if provenance.get("post_id") != post_id:
+        return JSONResponse(
+            {"error": "O manifesto não corresponde ao post pedido."},
+            status_code=422,
+        )
 
     report = verify_post_files(post_id, provenance)
     if not report.files:

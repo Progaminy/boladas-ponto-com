@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 
 from app import db
-from app.auth import get_current_user
+from app.auth import get_current_user, login_redirect
 from app.categories import get_category, list_categories
 from app.templating import templates
 
@@ -13,7 +13,7 @@ router = APIRouter()
 def explore(request: Request, categoria: str | None = None, local: str | None = None):
     current_user = get_current_user(request)
     if current_user is None:
-        return RedirectResponse("/entrar", status_code=303)
+        return login_redirect(request)
 
     rows = db.list_public_posts(category=categoria or None, location_query=local or None)
 

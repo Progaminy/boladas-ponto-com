@@ -23,7 +23,7 @@ def report_post(request: Request, post_id: str, reason: str = Form(...)):
         return RedirectResponse("/entrar", status_code=303)
 
     post = db.get_post(post_id)
-    if post is None:
+    if not db.post_is_public(post):
         return RedirectResponse("/explorar", status_code=303)
 
     if post["user_id"] != user["user_id"]:

@@ -34,8 +34,8 @@
 
     <div class="store-meta">
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.4rem;">
-        <span class="badge" style="background: {{ category.accent }}; color: #111827; font-weight:700;">{{ category.label }}</span>
-        <span class="badge" style="background: #10B981; color: #064E3B; font-weight:700;">✅ Empresa Verificada</span>
+        <span class="badge" style="background: {{ category.accent_dark }}; color: #fff; font-weight:700;">{{ category.label }}</span>
+        <span class="badge" style="background: #374151; color: #F9FAFB; font-weight:700;">Perfil empresarial</span>
         {% if business['seasonal_theme'] and business['seasonal_theme'] != 'padrao' %}
           <span class="badge" style="background: #F59E0B; color: #78350F; font-weight:700;">🎉 Tema: {{ business['seasonal_theme'] | replace('_', ' ') | capitalize }}</span>
         {% endif %}

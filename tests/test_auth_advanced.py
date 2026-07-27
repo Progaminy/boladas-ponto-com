@@ -45,16 +45,26 @@ def test_register_and_login_by_phone(client):
     assert login_resp.headers["location"] == "/explorar"
 
 
-def test_google_sign_in_flow(client):
-    # Registo/Login rápido por Conta Google
-    resp = client.get(
+def test_unverified_google_login_is_completely_disabled(client):
+    get_resp = client.get(
         "/auth/google?google_id=google_user_123&email=maria.google@gmail.com&name=Maria+Google",
         follow_redirects=False,
     )
-    assert resp.status_code == 303
-    assert resp.headers["location"] == "/explorar"
+    post_resp = client.post(
+        "/auth/google",
+        data={
+            "google_id": "google_user_123",
+            "email": "maria.google@gmail.com",
+            "name": "Maria Google",
+        },
+        follow_redirects=False,
+    )
 
-    # Verificar se a sessão foi iniciada
-    feed = client.get("/explorar")
-    assert feed.status_code == 200
-    assert "Maria Google" in feed.text
+    assert get_resp.status_code == 404
+    assert post_resp.status_code == 404
+    assert db_module.get_user_by_email("maria.google@gmail.com") is None
+
+    for path in ("/entrar", "/registar"):
+        page = client.get(path)
+        assert "/auth/google" not in page.text
+        assert "com o Google" not in page.text

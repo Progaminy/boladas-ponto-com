@@ -10,9 +10,6 @@ from app.models import PostInput, PublisherType
 from app.pipeline import GenerationError
 from app.storage import UploadedFile
 
-client = TestClient(app)
-
-
 def _fake_upload(key, data, content_type):
     return UploadedFile(
         key=key,
@@ -29,9 +26,25 @@ def _failing_generate_caption(*args, **kwargs):
     )
 
 
+def _failing_generate_image(*args, **kwargs):
+    raise GenerationError("quota de imagem indisponível")
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.db")
+    from app.routers import posts as posts_router
+
+    monkeypatch.setattr(posts_router, "generate_image", _failing_generate_image)
+    with TestClient(app) as test_client:
+        yield test_client
+
+
 @patch("app.routers.posts.generate_caption", side_effect=_failing_generate_caption)
 @patch("app.routers.posts.upload_and_verify", side_effect=_fake_upload)
-def test_quota_429_fallback_completes_post_and_stores_files_in_b2(mock_upload, mock_caption):
+def test_quota_429_fallback_completes_post_and_stores_files_in_b2(
+    mock_upload, mock_caption, client
+):
     # Regista utilizador de teste
     uid = uuid.uuid4().hex[:8]
     user_id = f"test_user_quota_{uid}"
@@ -39,11 +52,10 @@ def test_quota_429_fallback_completes_post_and_stores_files_in_b2(mock_upload, m
     pwd_hash = hash_password("senha12345")
     db.create_user(user_id, email, pwd_hash, "Vendedor Quota Teste")
 
-    test_c = TestClient(app)
-    test_c.post("/entrar", data={"email": email, "password": "senha12345"})
+    client.post("/entrar", data={"email": email, "password": "senha12345"})
 
     # Submeter post quando a IA falhar por quota 429
-    resp = test_c.post(
+    resp = client.post(
         "/posts",
         data={
             "business": "Telemóvel Usado Samsung A12",
@@ -66,8 +78,7 @@ def test_quota_429_fallback_completes_post_and_stores_files_in_b2(mock_upload, m
     assert post["provenance_key"] is not None
 
 
-def test_public_is_redirected_to_login_before_browsing_feed():
-    test_c = TestClient(app)
-    resp = test_c.get("/explorar", follow_redirects=False)
+def test_public_is_redirected_to_login_before_browsing_feed(client):
+    resp = client.get("/explorar", follow_redirects=False)
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/entrar"
+    assert resp.headers["location"] == "/entrar?next=%2Fexplorar"

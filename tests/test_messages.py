@@ -37,9 +37,14 @@ def _dummy_post_input():
     )
 
 
+def _create_public_post(post_id, user_id):
+    db_module.create_post(post_id, user_id, None, _dummy_post_input())
+    db_module.update_status(post_id, db_module.PostStatus.COMPLETED)
+
+
 def test_contact_post_owner_creates_message_and_thread(client):
     seller = _register(client, "vendedor@exemplo.co.mz", "Vendedor")
-    db_module.create_post("post-1", seller["user_id"], None, _dummy_post_input())
+    _create_public_post("post-1", seller["user_id"])
     client.post("/sair", follow_redirects=False)
 
     buyer = _register(client, "comprador@exemplo.co.mz", "Comprador")
@@ -58,7 +63,7 @@ def test_contact_post_owner_creates_message_and_thread(client):
 
 def test_owner_can_reply_to_buyer(client):
     seller = _register(client, "vendedor2@exemplo.co.mz", "Vendedor2")
-    db_module.create_post("post-2", seller["user_id"], None, _dummy_post_input())
+    _create_public_post("post-2", seller["user_id"])
     client.post("/sair", follow_redirects=False)
 
     buyer = _register(client, "comprador2@exemplo.co.mz", "Comprador2")
@@ -83,7 +88,7 @@ def test_owner_can_reply_to_buyer(client):
 
 def test_cannot_contact_own_post(client):
     seller = _register(client, "vendedor3@exemplo.co.mz", "Vendedor3")
-    db_module.create_post("post-3", seller["user_id"], None, _dummy_post_input())
+    _create_public_post("post-3", seller["user_id"])
 
     resp = client.post(
         "/posts/post-3/contactar", data={"body": "Teste"}, follow_redirects=False
@@ -109,7 +114,7 @@ def test_platform_contact_thread(client):
 
 def test_inbox_lists_conversations(client):
     seller = _register(client, "vendedor4@exemplo.co.mz", "Vendedor4")
-    db_module.create_post("post-4", seller["user_id"], None, _dummy_post_input())
+    _create_public_post("post-4", seller["user_id"])
     client.post("/sair", follow_redirects=False)
 
     _register(client, "comprador4@exemplo.co.mz", "Comprador4")

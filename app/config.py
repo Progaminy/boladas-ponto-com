@@ -52,6 +52,11 @@ MAX_POSTS_PER_USER_PER_DAY = int(os.environ.get("MAX_POSTS_PER_USER_PER_DAY", "1
 # aleatório fixo em .env — se não definido, gera-se um por processo (as
 # sessões não sobrevivem a um restart, o que é aceitável em dev).
 SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY") or os.urandom(32).hex()
+SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "").strip().lower() in {
+    "1",
+    "true",
+    "sim",
+}
 
 # O email que se registar com este endereço fica automaticamente admin
 # (acesso a /admin/moderacao). Define no .env antes de te registares.

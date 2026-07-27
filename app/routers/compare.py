@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 
 from app import db
-from app.auth import get_current_user
+from app.auth import get_current_user, login_redirect
 from app.categories import list_categories
 from app.templating import templates
 
@@ -20,7 +20,7 @@ def compare_prices_page(
 ):
     current_user = get_current_user(request)
     if current_user is None:
-        return RedirectResponse("/entrar", status_code=303)
+        return login_redirect(request)
 
     results = db.compare_prices_and_proximity(
         search_query=q,

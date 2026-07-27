@@ -7,3 +7,5 @@ data/*.db
 .pytest_cache/
 *.egg-info/
 demo/
+rascunho.md
+demo-smoke*/

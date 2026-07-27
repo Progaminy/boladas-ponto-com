@@ -22,6 +22,10 @@ def build_provenance(
     caption_skipped_reason: str | None = None,
     errors: list[str] | None = None,
 ) -> dict:
+    image_manifest = image_result.genblaze_manifest if image_result else {}
+    caption_manifest = caption_result.genblaze_manifest
+    primary_manifest = image_manifest or caption_manifest or None
+
     return {
         "post_id": post_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -46,13 +50,20 @@ def build_provenance(
         },
         "generation": {
             "prompt": image_result.prompt if image_result else None,
+            "caption_prompt": caption_result.prompt or None,
             "models": _models_usados(image_result, caption_result),
             "parameters": image_result.params if image_result else {},
             "image_generated": image_result is not None,
             "image_skipped_reason": image_skipped_reason,
             "caption_skipped_reason": caption_skipped_reason,
-            "genblaze_used": image_result is not None,
-            "genblaze_manifest": image_result.genblaze_manifest if image_result else None,
+            "genblaze_used": bool(image_manifest or caption_manifest),
+            # Campo singular mantido para compatibilidade com manifestos/UI
+            # anteriores; prefere imagem quando ambas as etapas existem.
+            "genblaze_manifest": primary_manifest,
+            "genblaze_manifests": {
+                "image": image_manifest or None,
+                "caption": caption_manifest or None,
+            },
         },
         "files": _ficheiros(image_file, caption_file),
         "errors": errors or [],

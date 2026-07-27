@@ -84,7 +84,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 
 button {
   background: var(--accent);
-  color: #14100a;
+  color: #fff;
   border: none;
   border-radius: 8px;
   padding: 0.75rem 1.2rem;
@@ -126,7 +126,7 @@ button:disabled { opacity: 0.6; cursor: wait; }
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
   background: var(--cat-accent, var(--accent));
-  color: #14100a;
+  color: #fff;
   font-weight: 700;
 }
 
@@ -198,7 +198,7 @@ a { color: var(--accent); }
   text-decoration: none;
   font-size: 1rem;
 }
-.btn-primary { background: var(--accent); color: #14100a; }
+.btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover { background: var(--accent-dark); }
 .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
@@ -224,7 +224,7 @@ a { color: var(--accent); }
   width: 28px; height: 28px;
   border-radius: 50%;
   background: var(--accent);
-  color: #14100a;
+  color: #fff;
   font-weight: 700;
   margin-bottom: 0.6rem;
 }
@@ -235,6 +235,40 @@ a { color: var(--accent); }
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    align-items: flex-start;
+    padding: 0.8rem 1rem;
+  }
+  .topbar nav {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0.15rem 0 0.45rem;
+    scrollbar-width: thin;
+  }
+  .topbar nav a,
+  .topbar nav button {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  .container { padding: 1.25rem 1rem 3rem; }
 }
 
 /* --- verificação de proveniência ao vivo --- */
@@ -248,6 +282,15 @@ a { color: var(--accent); }
   font-size: 0.9rem;
 }
 .verify-result.visible { display: block; }
+.genblaze-proof {
+  background: #111827;
+  border: 1px solid #374151;
+  border-left: 4px solid #10B981;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  margin: 0.65rem 0;
+}
+.genblaze-proof p { margin: 0; }
 .verify-result.checking { background: #2a2410; color: #f0c040; border: 1px solid #5a4a10; }
 .verify-result.ok { background: #10281c; color: #4ade80; border: 1px solid #1e5636; }
 .verify-result.failed { background: #2a1414; color: #f87171; border: 1px solid #5a1e1e; }
@@ -756,4 +799,3 @@ a { color: var(--accent); }
   color: #F9FAFB;
   border-bottom-left-radius: 2px;
 }
-

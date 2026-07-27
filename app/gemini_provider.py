@@ -1,8 +1,10 @@
-"""Gemini no Vertex AI Express, preservando o pipeline Genblaze.
+"""Providers síncronos usados pelo pipeline Genblaze da aplicação.
 
 O modo Express usa a combinação `vertexai=True` com uma chave API. A imagem
-continua a ser gerada dentro de um Provider do Genblaze, portanto o manifesto
-e a proveniência permanecem reais e auditáveis.
+e a legenda continuam a ser geradas dentro de Providers do Genblaze, portanto
+o manifesto e a proveniência permanecem reais e auditáveis. O SDK do
+GMICloud ainda expõe chat como função, não como Provider; o adaptador de texto
+abaixo coloca também essa chamada dentro do mesmo Pipeline.
 """
 
 from __future__ import annotations
@@ -60,7 +62,8 @@ def get_vertex_client():
     return _build_client(VERTEX_EXPRESS_API_KEY)
 
 
-def generate_json(
+def _generate_json_with_client(
+    client,
     model: str,
     prompt: str,
     *,
@@ -68,7 +71,7 @@ def generate_json(
     max_output_tokens: int = 400,
     media: tuple[bytes, str] | None = None,
 ) -> tuple[dict, str]:
-    """Gera JSON estruturado e devolve também o texto bruto do modelo."""
+    """Gera JSON estruturado com um cliente Gemini já autenticado."""
     try:
         from google.genai import types
 
@@ -80,7 +83,7 @@ def generate_json(
                 types.Part.from_bytes(data=data, mime_type=mime_type),
             ]
 
-        response = get_vertex_client().models.generate_content(
+        response = client.models.generate_content(
             model=model,
             contents=contents,
             config=types.GenerateContentConfig(
@@ -108,7 +111,32 @@ def generate_json(
         raise GeminiError(f"Falha no Gemini Vertex AI Express: {exc}") from exc
 
 
-_FALLBACK_MODEL = ModelSpec(model_id="*", modality=Modality.IMAGE)
+def generate_json(
+    model: str,
+    prompt: str,
+    *,
+    temperature: float = 0.0,
+    max_output_tokens: int = 400,
+    media: tuple[bytes, str] | None = None,
+) -> tuple[dict, str]:
+    """Gera JSON estruturado e devolve também o texto bruto do modelo."""
+    try:
+        return _generate_json_with_client(
+            get_vertex_client(),
+            model,
+            prompt,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            media=media,
+        )
+    except GeminiError:
+        raise
+    except Exception as exc:
+        raise GeminiError(f"Falha no Gemini Vertex AI Express: {exc}") from exc
+
+
+_IMAGE_FALLBACK_MODEL = ModelSpec(model_id="*", modality=Modality.IMAGE)
+_TEXT_FALLBACK_MODEL = ModelSpec(model_id="*", modality=Modality.TEXT)
 
 
 class VertexExpressImageProvider(SyncProvider):
@@ -118,7 +146,7 @@ class VertexExpressImageProvider(SyncProvider):
 
     @classmethod
     def create_registry(cls) -> ModelRegistry:
-        return ModelRegistry(fallback=_FALLBACK_MODEL)
+        return ModelRegistry(fallback=_IMAGE_FALLBACK_MODEL)
 
     def __init__(
         self,
@@ -219,3 +247,172 @@ class VertexExpressImageProvider(SyncProvider):
             raise GeminiError(
                 f"Falha na geração de imagem pelo Gemini: {exc}"
             ) from exc
+
+
+class _JsonTextProvider(SyncProvider):
+    """Base para Providers que devolvem um único documento JSON em texto."""
+
+    @classmethod
+    def create_registry(cls) -> ModelRegistry:
+        return ModelRegistry(fallback=_TEXT_FALLBACK_MODEL)
+
+    def __init__(
+        self,
+        *,
+        output_dir: str | Path | None = None,
+        models: ModelRegistry | None = None,
+        retry_policy: RetryPolicy | None = None,
+        probe_cache_ttl: float | None = None,
+        probe_cache_max_entries: int | None = None,
+    ):
+        super().__init__(
+            models=models,
+            retry_policy=retry_policy,
+            probe_cache_ttl=probe_cache_ttl,
+            probe_cache_max_entries=probe_cache_max_entries,
+        )
+        self._output_dir = Path(output_dir) if output_dir else None
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            supported_modalities=[Modality.TEXT],
+            supported_inputs=["text"],
+            models=self._models.known(),
+            output_formats=["application/json"],
+        )
+
+    def _generate_raw(self, step: Step) -> tuple[str, dict[str, Any], float | None]:
+        raise NotImplementedError
+
+    def generate(self, step: Step, config: RunnableConfig | None = None) -> Step:
+        raw, provider_payload, cost_usd = self._generate_raw(step)
+        raw = raw.strip()
+        if not raw:
+            raise RuntimeError(f"{self.name} devolveu uma resposta de texto vazia.")
+
+        data = raw.encode("utf-8")
+        if self._output_dir:
+            self._output_dir.mkdir(parents=True, exist_ok=True)
+            path = self._output_dir / f"{step.step_id}.json"
+        else:
+            fd, tmp = tempfile.mkstemp(suffix=".json")
+            os.close(fd)
+            path = Path(tmp)
+        path.write_bytes(data)
+
+        step.assets.append(
+            Asset(
+                url=local_file_url(path.resolve()),
+                media_type="application/json",
+                sha256=hashlib.sha256(data).hexdigest(),
+                size_bytes=len(data),
+            )
+        )
+        step.provider_payload = provider_payload
+        step.cost_usd = cost_usd
+        self._apply_registry_pricing(step)
+        return step
+
+
+class VertexExpressTextProvider(_JsonTextProvider):
+    """Provider Genblaze para texto JSON do Gemini/Vertex Express."""
+
+    name = "google-vertex-express"
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        *,
+        output_dir: str | Path | None = None,
+        models: ModelRegistry | None = None,
+        retry_policy: RetryPolicy | None = None,
+        probe_cache_ttl: float | None = None,
+        probe_cache_max_entries: int | None = None,
+    ):
+        super().__init__(
+            output_dir=output_dir,
+            models=models,
+            retry_policy=retry_policy,
+            probe_cache_ttl=probe_cache_ttl,
+            probe_cache_max_entries=probe_cache_max_entries,
+        )
+        self._api_key = api_key or VERTEX_EXPRESS_API_KEY
+        self._client: Any = None
+
+    def _get_client(self):
+        if not self._api_key:
+            raise GeminiError("VERTEX_EXPRESS_API_KEY não configurada.")
+        if self._client is None:
+            self._client = _build_client(self._api_key)
+        return self._client
+
+    def _generate_raw(self, step: Step) -> tuple[str, dict[str, Any], float | None]:
+        _, raw = _generate_json_with_client(
+            self._get_client(),
+            step.model,
+            step.prompt or "",
+            temperature=float(step.params.get("temperature", 0.0)),
+            max_output_tokens=int(step.params.get("max_output_tokens", 400)),
+        )
+        return (
+            raw,
+            {
+                "google_vertex_express": {
+                    "model": step.model,
+                    "response_mime_type": "application/json",
+                }
+            },
+            None,
+        )
+
+
+class GMICloudTextProvider(_JsonTextProvider):
+    """Adapta `genblaze_gmicloud.chat()` ao contrato de Provider/Pipeline."""
+
+    name = "gmicloud"
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        *,
+        output_dir: str | Path | None = None,
+        models: ModelRegistry | None = None,
+        retry_policy: RetryPolicy | None = None,
+        probe_cache_ttl: float | None = None,
+        probe_cache_max_entries: int | None = None,
+    ):
+        super().__init__(
+            output_dir=output_dir,
+            models=models,
+            retry_policy=retry_policy,
+            probe_cache_ttl=probe_cache_ttl,
+            probe_cache_max_entries=probe_cache_max_entries,
+        )
+        self._api_key = api_key
+
+    def _generate_raw(self, step: Step) -> tuple[str, dict[str, Any], float | None]:
+        # O pacote oficial ainda fornece chat como função independente. Este
+        # adaptador mantém a chamada real, mas deixa execução, retries, assets e
+        # manifesto sob responsabilidade do Pipeline Genblaze.
+        from genblaze_gmicloud import chat
+
+        response = chat(
+            step.model,
+            prompt=step.prompt or "",
+            temperature=step.params.get("temperature"),
+            max_tokens=step.params.get("max_tokens"),
+            api_key=self._api_key,
+        )
+        return (
+            response.text,
+            {
+                "gmicloud": {
+                    "model": response.model,
+                    "finish_reason": response.finish_reason,
+                    "tokens_in": response.tokens_in,
+                    "tokens_out": response.tokens_out,
+                    "tokens_cached": response.tokens_cached,
+                }
+            },
+            response.cost_usd,
+        )

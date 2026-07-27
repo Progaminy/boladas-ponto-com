@@ -1,8 +1,8 @@
 """Geração real de imagem e texto, com Vertex AI Express como principal.
 
 Em `AI_PROVIDER=auto`, Vertex é tentado primeiro; GMICloud continua disponível
-como fallback. A imagem passa sempre pelo Pipeline do Genblaze, inclusive no
-Vertex, mantendo o manifesto de proveniência.
+como fallback. Imagem e legenda passam sempre pelo Pipeline do Genblaze,
+mantendo os manifestos de proveniência de ambas as modalidades.
 """
 
 import io
@@ -15,7 +15,7 @@ from urllib.parse import unquote, urlparse
 import httpx
 from PIL import Image
 from genblaze_core import Modality, Pipeline
-from genblaze_gmicloud import GMICloudImageProvider, chat
+from genblaze_gmicloud import GMICloudImageProvider
 
 from app.categories import Category
 from app.config import (
@@ -31,9 +31,9 @@ from app.config import (
 )
 from app.formatting import format_price_mt
 from app.gemini_provider import (
-    GeminiError,
+    GMICloudTextProvider,
     VertexExpressImageProvider,
-    generate_json,
+    VertexExpressTextProvider,
 )
 from app.models import PostInput
 
@@ -62,6 +62,8 @@ class CaptionResult:
     provider: str = ""
     model: str = ""
     raw_text: str = ""
+    prompt: str = ""
+    genblaze_manifest: dict = field(default_factory=dict)
 
 
 def build_image_prompt(data: PostInput, category: Category) -> str:
@@ -91,7 +93,28 @@ def _asset_bytes(url: str) -> bytes:
     return response.content
 
 
+def _safe_native_manifest(manifest) -> dict:
+    """Serializa o manifesto sem URLs temporárias nem payloads do provedor.
+
+    Esses campos são operacionais e não participam no hash canónico do
+    Genblaze; podem, contudo, conter URLs assinadas. A proveniência pública
+    conserva a estrutura nativa verificável sem publicar credenciais.
+    """
+    native = manifest.model_dump(mode="json")
+    native["manifest_uri"] = None
+    for native_step in native.get("run", {}).get("steps", []):
+        native_step["provider_payload"] = {}
+        for collection in ("inputs", "assets"):
+            for native_asset in native_step.get(collection, []):
+                # Asset.url é obrigatório no schema nativo. Um marcador seguro
+                # mantém o documento recarregável; URLs não entram no hash
+                # canónico quando o asset tem SHA-256.
+                native_asset["url"] = "redacted://asset-url"
+    return native
+
+
 def _genblaze_manifest(run, manifest, step, asset) -> dict:
+    """Preserva o manifesto nativo seguro e expõe um resumo estável para a UI."""
     return {
         "run_id": run.run_id,
         "schema_version": manifest.schema_version,
@@ -108,8 +131,11 @@ def _genblaze_manifest(run, manifest, step, asset) -> dict:
             "media_type": asset.media_type,
             "width": asset.width,
             "height": asset.height,
+            "size_bytes": asset.size_bytes,
             "sha256": asset.sha256,
         },
+        "native": _safe_native_manifest(manifest),
+        "native_redacted": True,
     }
 
 
@@ -258,6 +284,8 @@ def _caption_result(
     *,
     provider: str,
     model: str,
+    prompt: str = "",
+    genblaze_manifest: dict | None = None,
 ) -> CaptionResult:
     try:
         caption = str(parsed["caption"]).strip()
@@ -285,50 +313,89 @@ def _caption_result(
         provider=provider,
         model=model,
         raw_text=raw_text,
+        prompt=prompt,
+        genblaze_manifest=genblaze_manifest or {},
     )
 
 
-def _generate_caption_vertex(data: PostInput, prompt: str) -> CaptionResult:
-    try:
-        parsed, raw = generate_json(
-            GEMINI_CHAT_MODEL,
-            prompt,
-            temperature=0.7,
-            max_output_tokens=400,
+def _run_caption_pipeline(
+    data: PostInput,
+    *,
+    provider,
+    provider_name: str,
+    model: str,
+    prompt: str,
+    params: dict,
+) -> CaptionResult:
+    run, manifest = (
+        Pipeline("boladas-post-caption")
+        .step(
+            provider,
+            model=model,
+            prompt=prompt,
+            modality=Modality.TEXT,
+            params=params,
         )
-    except GeminiError as exc:
-        raise GenerationError(str(exc)) from exc
+        .run(timeout=120, max_retries=1, raise_on_failure=False)
+    )
+
+    step = run.steps[0]
+    if step.status != "succeeded" or not step.assets:
+        raise GenerationError(
+            f"Falha na geração de legenda via {provider_name} "
+            f"({step.error_code}): {step.error}"
+        )
+
+    asset = step.assets[0]
+    try:
+        raw = _asset_bytes(asset.url).decode("utf-8")
+    except (OSError, UnicodeDecodeError, httpx.HTTPError) as exc:
+        raise GenerationError(
+            f"Não foi possível ler a legenda gerada via {provider_name}: {exc}"
+        ) from exc
+
+    try:
+        parsed = _parse_caption_json(raw)
+    except json.JSONDecodeError as exc:
+        raise GenerationError(
+            "Resposta do modelo de chat não é um JSON válido: "
+            f"{exc}. Texto: {raw[:200]}"
+        ) from exc
+
     return _caption_result(
         parsed,
         raw,
         data,
-        provider="google-vertex-express",
+        provider=provider_name,
+        model=step.model,
+        prompt=prompt,
+        genblaze_manifest=_genblaze_manifest(run, manifest, step, asset),
+    )
+
+
+def _generate_caption_vertex(data: PostInput, prompt: str) -> CaptionResult:
+    if not VERTEX_EXPRESS_API_KEY:
+        raise GenerationError("VERTEX_EXPRESS_API_KEY não configurada.")
+    return _run_caption_pipeline(
+        data,
+        provider=VertexExpressTextProvider(api_key=VERTEX_EXPRESS_API_KEY),
+        provider_name="google-vertex-express",
         model=GEMINI_CHAT_MODEL,
+        prompt=prompt,
+        params={"temperature": 0.7, "max_output_tokens": 400},
     )
 
 
 def _generate_caption_gmi(data: PostInput, prompt: str) -> CaptionResult:
     if not GMI_API_KEY:
         raise GenerationError("GMI_API_KEY não configurada.")
-    response = chat(
-        GMI_CHAT_MODEL,
-        prompt=prompt,
-        temperature=0.7,
-        max_tokens=400,
-    )
-    try:
-        parsed = _parse_caption_json(response.text)
-    except json.JSONDecodeError as exc:
-        raise GenerationError(
-            "Resposta do modelo de chat não é um JSON válido: "
-            f"{exc}. Texto: {response.text[:200]}"
-        ) from exc
-    return _caption_result(
-        parsed,
-        response.text,
+    return _run_caption_pipeline(
         data,
-        provider="gmicloud",
+        provider=GMICloudTextProvider(api_key=GMI_API_KEY),
+        provider_name="gmicloud",
         model=GMI_CHAT_MODEL,
+        prompt=prompt,
+        params={"temperature": 0.7, "max_tokens": 400},
     )
 
 
@@ -372,4 +439,3 @@ def build_fallback_caption(data: PostInput, category: Category) -> CaptionResult
         model="sem_ia_quota_excedida",
         raw_text=caption_text,
     )
-

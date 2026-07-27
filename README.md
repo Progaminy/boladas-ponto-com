@@ -2,13 +2,13 @@
 
 **Do zero ao infinito.**
 
-Aplicação de geração de posts para redes sociais criada para o **Backblaze Generative Media Hackathon**. Transforma o briefing de um negócio (tema, produto/serviço, público-alvo, tom, chamada para ação, categoria, preço em Metical, localização e contacto) num post pronto a publicar — imagem 1080×1080, legenda, chamada para ação e hashtags — usando o SDK **[Genblaze](https://github.com/backblaze-labs/genblaze)** com **Gemini (Vertex AI Express)** como provedor principal e **GMICloud** como alternativa, e guarda tudo no **Backblaze B2** com um manifesto de proveniência verificável (SHA-256).
+Aplicação de geração de posts para redes sociais criada para o **Backblaze Generative Media Hackathon**. Transforma o briefing de um negócio (tema, produto/serviço, público-alvo, tom, chamada para ação, categoria, preço em Metical, localização e contacto) numa legenda, chamada para ação e hashtags prontas a publicar — e, quando há quota do provedor, numa imagem 1080×1080 — usando o SDK **[Genblaze](https://github.com/backblaze-labs/genblaze)** com **Gemini** como provedor principal e **GMICloud** como alternativa. Os artefactos realmente produzidos são guardados no **Backblaze B2** com um manifesto de proveniência verificável (SHA-256).
 
 Serve tanto empresas com marca própria (estilizadas por categoria de negócio, entre ~29 categorias, ou uma categoria personalizada escrita à mão) como utilizadores simples que querem anunciar sem ter uma marca. Cada utilizador regista-se, pode registar quantas empresas quiser (cada uma com o seu próprio perfil, categoria e fotos), publica posts em nome próprio ou de qualquer uma delas — o formulário fica simples por omissão para uma venda pessoal/eventual, e só pede os detalhes de marketing quando publicas como empresa — e explora os posts de outros negócios por categoria e localização para comparar preços — isto exige conta, como no Facebook. Já cada post individual e a sua proveniência têm uma página pública e partilhável (sem conta), para poderem ser divulgados e verificados por qualquer pessoa — a menos que tenha sido reportado e esteja pendente de revisão (ver moderação abaixo). O número `872599084` é o contacto fixo da plataforma para mediação entre compradores e vendedores.
 
 ## Princípio: Nunca fingir
 
-Um post só aparece como `completed` depois de o Genblaze gerar realmente a imagem e a legenda, e de cada ficheiro ser confirmado no Backblaze B2 — não por um simples `head()`, mas descarregando os bytes de volta e comparando o SHA-256 com o que foi enviado. Falhas de geração ou de upload aparecem como `failed`, com o erro real — nunca como sucesso simulado.
+`completed` significa que o pacote publicável — no mínimo legenda, CTA, hashtags e manifesto — foi gravado e confirmado no Backblaze B2. A imagem é opcional: se o provedor não tiver quota, a ausência e a causa ficam visíveis no post e no manifesto. Cada ficheiro declarado é descarregado depois do upload e o seu SHA-256 é comparado com o original. Uma falha de armazenamento deixa o post como `failed`; uma limitação da IA nunca é disfarçada como imagem gerada.
 
 Isto vale para o resto da aplicação:
 
@@ -22,13 +22,13 @@ Isto vale para o resto da aplicação:
 Qualquer visitante ou utilizador registado pode consultar as seguintes regras e funcionalidades da plataforma:
 
 1. **Diretório Público de Lojas & Empresas (`/empresas`)**:
-   - Qualquer utilizador pode visualizar e navegar nas páginas completas de empresas e lojas físicas reais criadas no sistema:
+   - Qualquer utilizador pode navegar nas páginas completas das empresas registadas. A instalação local inclui dados fictícios de demonstração:
      - **Farmácia Moçambique Vida** (Medicamentos, vitaminas, saúde e bem-estar).
      - **Ferragem Lendária Maputo** (Cimento, tubos PVC, pregos e materiais de construção).
      - **Moda & Estilo Boutique** (Capulanas de luxo, vestidos de gala e vestuário).
      - **Mercado Popular de Xipamanine** (Arroz por grosso, óleo alimentar, feijão e mercearia).
      - **Transporte & Carga Expresso** (Mudanças residenciais e fretes de material).
-   - Cada empresa possui uma página personalizada estilo montra profissional com capa, logótipo, NUIT, localização, catálogo de produtos, lista de sócios/gestores e botões de contacto direto (`WhatsApp`, `Ligar`, `Messenger Boladas`).
+   - Cada empresa possui uma página personalizada estilo montra profissional com capa, logótipo, localização, catálogo de produtos, lista de sócios/gestores e botões de contacto direto (`WhatsApp`, `Ligar`, `Messenger Boladas`). A plataforma não atribui um selo de verificação sem um processo real.
 
 2. **Comparador de Preços & Detetador de Proximidade GPS (`/comparar`)**:
    - Depois de iniciar sessão, permite pesquisar por produto (ex.: *Cimento, Paracetamol, Capulana, Arroz, Mudança*) e comparar instantaneamente os preços em Meticais (`MT`) praticados por diferentes lojas e vendedores.
@@ -45,13 +45,13 @@ Qualquer visitante ou utilizador registado pode consultar as seguintes regras e 
    - A qualquer momento, o utilizador pode carregar no botão `🆘 Pedir Assistência Humana` nas mensagens ou anúncios para abrir uma linha direta de apoio e mediação com a equipa da plataforma Boladas-ponto-com.
 
 6. **Resiliência contra Exaustão de Quota de IA**:
-   - Se as APIs de IA (Vertex Gemini / GMICloud) atingirem o limite de requisições (`429 RESOURCE_EXHAUSTED`), o post é concluído como `completed` com a imagem/descrição fornecida pelo utilizador, preservando o upload e proveniência B2 sem nunca bloquear a publicação.
+   - Se as APIs de IA (Gemini / GMICloud) atingirem o limite de requisições (`429 RESOURCE_EXHAUSTED`), a Boladas usa o texto fornecido pelo vendedor como legenda de reserva e publica sem imagem gerada. O motivo real fica no manifesto; não existe imagem de substituição apresentada como IA.
 
 ## Stack
 
 - **Backend + frontend**: FastAPI + Jinja2 (um único serviço Python).
 - **Geração**: [`genblaze`](https://pypi.org/project/genblaze-core/) (`genblaze-core` + `genblaze-gmicloud` + `genblaze-s3`) com **dois provedores**, definidos por `AI_PROVIDER` (`auto` por omissão: tenta o Vertex primeiro e recorre ao GMICloud):
-  - **Gemini via Vertex AI Express** (principal) — `gemini-2.5-flash-image` para imagem e `gemini-2.5-flash` para texto e visão. A imagem é gerada dentro de um `SyncProvider` do Genblaze (`app/gemini_provider.py`), pelo que o `Pipeline`, o manifesto e a cadeia de proveniência se mantêm intactos.
+  - **Gemini** (principal) — `gemini-2.5-flash-image` para imagem e `gemini-flash-latest` para texto e visão. Texto e imagem passam por `SyncProvider`s do Genblaze (`app/gemini_provider.py`), preservando o `Pipeline`, o manifesto e a cadeia de proveniência.
   - **GMICloud** (fallback) — `seedream-5.0-lite` para imagem e `deepseek-ai/DeepSeek-V3-0324` para texto.
 
   Se todos os provedores configurados falharem, o erro devolvido contém a razão real de cada um.
@@ -69,7 +69,7 @@ Qualquer visitante ou utilizador registado pode consultar as seguintes regras e 
 - **Fotos de perfil/capa**: uma foto de perfil e uma de capa para a conta pessoal, e o mesmo por cada empresa registada — o perfil pessoal em `/utilizador/<id>` exige sessão e a montra empresarial em `/negocio/<id>` é pública.
 - **Empresas com sócios**: uma empresa pode ter vários gestores, cada um com o seu próprio acesso. Todos publicam e editam; só o proprietário acrescenta ou remove gestores, e o proprietário nunca pode ser removido (uma empresa sem dono ficaria inacessível).
 - **Cadastro direto de empresa**: `/registar/empresa` cria a conta de acesso e o negócio num só passo, para quem só quer registar a loja e não uma conta pessoal.
-- **Verificação de proveniência ao vivo**: `POST /posts/<id>/verificar` (público) volta a descarregar do B2 cada ficheiro declarado no manifesto e recalcula o SHA-256, com resultado por ficheiro.
+- **Verificação de proveniência ao vivo**: `POST /posts/<id>/verificar` (público, limitado por IP) volta a descarregar do B2 cada ficheiro permitido no manifesto e recalcula o SHA-256, com resultado por ficheiro. Chaves fora de `posts/<post_id>/` e objetos excessivamente grandes são recusados antes do download.
 - **Diagnóstico do sistema**: `/estado` exercita mesmo as ligações ao B2, ao Vertex e ao GMICloud e mostra o erro real do serviço quando algo falha.
 - **Interface móvel**: a maioria dos acessos em Moçambique é por telemóvel, por isso o layout é responsivo (campos empilham, navegação quebra em linhas, filtros ficam a largura total).
 
@@ -266,7 +266,7 @@ isto é aceitável, mas é uma limitação a resolver antes de um uso real em pr
 | Capacidade | Estado | Verificação |
 |---|---|---|
 | Armazenamento no Backblaze B2 | ✅ | Upload, verificação por SHA-256 e remoção testados no bucket real |
-| Post completo de ponta a ponta | ✅ | `completed`, com `caption.txt` e `provenance.json` confirmados no bucket |
+| Pacote publicável de ponta a ponta | ✅ | `completed`, com `caption.txt` e `provenance.json` confirmados no bucket |
 | Legenda + CTA + hashtags | ✅ | Gerados pelo Gemini em português, com preço e bairro integrados |
 | Descrição a partir de uma foto | ✅ | Descreveu uma camisa real (cor, botões, colarinho) sem inventar marca nem tamanho |
 | Descrição a partir de explicação | ✅ | Transformou "usei duas vezes, está como nova" numa descrição comercial |
@@ -275,11 +275,11 @@ isto é aceitável, mas é uma limitação a resolver antes de um uso real em pr
 | Moderação visual (fotos/vídeo) | ✅ | Devolveu veredicto real sobre uma imagem real |
 | **Geração de imagem** | ❌ | Bloqueada por quota — ver abaixo |
 
-**Implementado:** registo/login com Termos de Uso, várias empresas por utilizador com perfis
+**Implementado:** registo/login por email ou telefone com Termos de Uso, várias empresas por utilizador com perfis
 e fotos, formulário de criação que fica simples para uma venda pessoal e completo para uma
 empresa, geração via Genblaze (Gemini/Vertex como principal, GMICloud como fallback) com
 sobreposição determinística de nome/preço/CTA, armazenamento no B2 com verificação por hash,
-manifesto de proveniência (com o manifesto nativo do Genblaze embutido) e verificação ao vivo
+manifesto de proveniência (com os manifestos nativos do Genblaze embutidos quando a IA participa) e verificação ao vivo
 desse manifesto, histórico privado, galeria com filtros, mensagens ligadas ao produto, média
 real do produto (4 fotos + vídeo de 30s validados), rastreio de transações, moderação em três
 camadas com revisão humana, diagnóstico do sistema e interface responsiva.
@@ -306,13 +306,16 @@ estes fornecedores, e o banco local não autoriza pagamentos online por cartão.
 decisão técnica nem uma tarefa por fazer — é uma barreira de acesso a infraestrutura, que é
 precisamente o tipo de obstáculo que este projeto existe para contornar no lado de quem vende.
 
-O comportamento perante essa falta foi verificado e é honesto: o post fica `failed` com a
-mensagem real de cada provedor, sem estados presos nem sucessos simulados. Assim que existir
-qualquer via de pagamento, a geração de imagem passa a funcionar sem alterar uma linha de
-código — basta saldo. Confirma o estado de cada provedor em `/estado`.
+O comportamento perante essa falta foi verificado e é honesto: se a legenda puder ser
+produzida — por IA ou, em último recurso, a partir do texto do vendedor — o anúncio fica
+publicável sem imagem, com a causa registada. Se o B2 não confirmar os ficheiros, o post fica
+`failed`. Assim que houver quota de imagem, o mesmo pipeline passa a incluir `image.png` e
+`thumbnail.webp` sem alterar o fluxo. Confirma o estado de cada provedor em `/estado`.
 
-**Por fazer:** deploy para a URL pública, conta de demonstração para os jurados e o vídeo de
-apresentação.
+**Antes de submeter no Devpost:** publicar o deploy HTTPS e confirmar a URL numa janela
+anónima. A conta e o vídeo locais de demonstração são gerados pelos scripts deste repositório;
+as credenciais e o link público do vídeo devem ser colocados no formulário final, não em
+ficheiros que exponham acessos de produção.
 
 **Nota sobre pagamentos:** o Boladas-ponto-com não processa nem retém dinheiro de
 utilizadores. Um mecanismo desse tipo (custódia/escrow) exigiria licenciamento como

@@ -125,7 +125,7 @@ def contact_post_owner(request: Request, post_id: str, body: str = Form(...)):
         return RedirectResponse("/entrar", status_code=303)
 
     post = db.get_post(post_id)
-    if post is None:
+    if not db.post_is_public(post):
         return RedirectResponse("/explorar", status_code=303)
 
     owner_id = post["user_id"]
@@ -158,7 +158,7 @@ def initiate_messenger_chat(
 
     if post_id:
         post = db.get_post(post_id)
-        if post:
+        if db.post_is_public(post):
             target_owner_id = post["user_id"]
     elif business_id:
         biz = db.get_business(business_id)

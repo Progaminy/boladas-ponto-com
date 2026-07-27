@@ -41,9 +41,14 @@ def _dummy_post_input():
     )
 
 
+def _create_public_post(post_id, user_id):
+    db_module.create_post(post_id, user_id, None, _dummy_post_input())
+    db_module.update_status(post_id, db_module.PostStatus.COMPLETED)
+
+
 def _setup_transaction(client, with_mediation=False):
     seller = _register(client, "vendedor@exemplo.co.mz", "Vendedor")
-    db_module.create_post("post-tx-1", seller["user_id"], None, _dummy_post_input())
+    _create_public_post("post-tx-1", seller["user_id"])
     client.post("/sair", follow_redirects=False)
 
     buyer = _register(client, "comprador@exemplo.co.mz", "Comprador")
@@ -67,7 +72,7 @@ def test_buyer_can_start_transaction(client):
 
 def test_seller_cannot_start_transaction_on_own_post(client):
     seller = _register(client, "vendedor2@exemplo.co.mz", "Vendedor2")
-    db_module.create_post("post-tx-2", seller["user_id"], None, _dummy_post_input())
+    _create_public_post("post-tx-2", seller["user_id"])
 
     resp = client.post("/posts/post-tx-2/transacao", data={}, follow_redirects=False)
     assert resp.status_code == 303

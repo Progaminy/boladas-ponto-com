@@ -8,14 +8,14 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from PIL import Image
 
 from app import db
-from app.auth import get_current_user
+from app.auth import get_current_user, login_redirect, safe_next_url
 from app.categories import get_category, list_categories
 from app.category_classify import suggest_category
 from app.config import MAX_POSTS_PER_USER_PER_DAY
 from app.describe import DescriptionError, describe_from_image, describe_from_text
 from app.image_compose import add_business_overlay
 from app.media_validate import MediaValidationError, validate_photo
-from app.models import PostInput, PostStatus, PublisherType
+from app.models import ListingStatus, PostInput, PostStatus, PublisherType
 from app.moderation import check_text_blocklist, check_text_with_ai
 from app.pipeline import GenerationError, build_fallback_caption, generate_caption, generate_image
 from app.provenance import build_caption_txt, build_provenance
@@ -43,7 +43,7 @@ def root(request: Request):
 def create_form(request: Request):
     user = get_current_user(request)
     if user is None:
-        return RedirectResponse("/entrar", status_code=303)
+        return login_redirect(request)
 
     businesses = db.list_businesses_by_user(user["user_id"])
     return templates.TemplateResponse(
@@ -351,10 +351,12 @@ def result_page(request: Request, post_id: str):
     is_owner = user is not None and user["user_id"] == row["user_id"]
     is_admin = bool(user and user["is_admin"])
 
-    if row["moderation_status"] != "approved" and not is_owner and not is_admin:
+    if not db.post_is_public(row) and not is_owner and not is_admin:
         return templates.TemplateResponse(
-            request, "result.html", {"post": None, "post_id": post_id, "moderated": True},
-            status_code=403,
+            request,
+            "result.html",
+            {"post": None, "post_id": post_id, "moderated": False},
+            status_code=404,
         )
 
     category = get_category(row["category"])
@@ -384,13 +386,23 @@ def react_to_post(
     type: str | None = Form(None),
     reaction_type: str | None = Form(None),
     reason: str | None = Form(None),
+    return_to: str | None = Form(None),
 ):
     user = get_current_user(request)
+    wants_json = (
+        request.headers.get("x-requested-with") == "BoladasFetch"
+        or (return_to is None and request.headers.get("referer") is None)
+    )
     if user is None:
-        referer = request.headers.get("referer")
-        if referer:
-            return RedirectResponse("/entrar", status_code=303)
+        if not wants_json:
+            return RedirectResponse(
+                f"/entrar?next=%2Fposts%2F{post_id}", status_code=303
+            )
         return JSONResponse({"error": "Autenticação necessária."}, status_code=401)
+
+    row = db.get_post(post_id)
+    if not db.post_is_public(row):
+        return JSONResponse({"error": "Post não encontrado."}, status_code=404)
 
     final_type = (type or reaction_type or "").strip().lower()
     if not final_type:
@@ -398,9 +410,11 @@ def react_to_post(
 
     try:
         res = db.add_post_reaction(post_id, user["user_id"], final_type, reason)
-        referer = request.headers.get("referer")
-        if referer:
-            return RedirectResponse(referer, status_code=303)
+        if not wants_json:
+            return RedirectResponse(
+                safe_next_url(return_to, f"/posts/{post_id}"),
+                status_code=303,
+            )
         return JSONResponse(res)
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
@@ -411,19 +425,31 @@ def add_comment(
     request: Request,
     post_id: str,
     body: str = Form(...),
+    return_to: str | None = Form(None),
 ):
     user = get_current_user(request)
+    wants_json = (
+        request.headers.get("x-requested-with") == "BoladasFetch"
+        or (return_to is None and request.headers.get("referer") is None)
+    )
     if user is None:
-        referer = request.headers.get("referer")
-        if referer:
-            return RedirectResponse("/entrar", status_code=303)
+        if not wants_json:
+            return RedirectResponse(
+                f"/entrar?next=%2Fposts%2F{post_id}", status_code=303
+            )
         return JSONResponse({"error": "Autenticação necessária."}, status_code=401)
+
+    row = db.get_post(post_id)
+    if not db.post_is_public(row):
+        return JSONResponse({"error": "Post não encontrado."}, status_code=404)
 
     try:
         comment = db.add_post_comment(post_id, user["user_id"], body)
-        referer = request.headers.get("referer")
-        if referer:
-            return RedirectResponse(referer, status_code=303)
+        if not wants_json:
+            return RedirectResponse(
+                safe_next_url(return_to, f"/posts/{post_id}"),
+                status_code=303,
+            )
         return JSONResponse({"success": True, "comment": comment})
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
@@ -462,8 +488,7 @@ def delete_post_endpoint(request: Request, post_id: str):
 
     try:
         db.delete_post(post_id, user["user_id"])
-        referer = request.headers.get("referer") or "/perfil?tab=produtos"
-        return RedirectResponse(referer, status_code=303)
+        return RedirectResponse("/perfil?tab=produtos", status_code=303)
     except PermissionError as exc:
         return JSONResponse({"error": str(exc)}, status_code=403)
     except ValueError as exc:
@@ -480,6 +505,31 @@ def change_post_status(request: Request, post_id: str, new_status: str = Form(..
     if post is None or post["user_id"] != user["user_id"]:
         return RedirectResponse("/perfil?tab=produtos", status_code=303)
 
-    db.update_status(post_id, new_status)
-    referer = request.headers.get("referer") or "/perfil?tab=produtos"
-    return RedirectResponse(referer, status_code=303)
+    try:
+        listing_status = ListingStatus(new_status.strip().lower())
+    except (AttributeError, ValueError):
+        return JSONResponse(
+            {
+                "error": "Estado inválido. Usa active, paused ou sold.",
+                "allowed": [status.value for status in ListingStatus],
+            },
+            status_code=422,
+        )
+
+    if post["status"] != PostStatus.COMPLETED.value:
+        return JSONResponse(
+            {
+                "error": (
+                    "A disponibilidade só pode ser alterada depois de o post "
+                    "estar concluído."
+                )
+            },
+            status_code=409,
+        )
+
+    try:
+        db.update_listing_status(post_id, listing_status)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=409)
+
+    return RedirectResponse("/perfil?tab=produtos", status_code=303)

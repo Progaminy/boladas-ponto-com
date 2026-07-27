@@ -31,5 +31,7 @@ services:
         value: deepseek-ai/DeepSeek-V3-0324
       - key: SESSION_SECRET_KEY
         generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
       - key: MAX_POSTS_PER_USER_PER_DAY
         value: "10"

@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
 
@@ -173,10 +173,17 @@ def register_submit(
 
 
 @router.get("/entrar", response_class=HTMLResponse)
-def login_form(request: Request):
+def login_form(
+    request: Request,
+    next_url: str | None = Query(default=None, alias="next"),
+):
     return templates.TemplateResponse(
         request, "login.html",
-        {"error": None, "phone_prefixes": list_phone_prefixes()},
+        {
+            "error": None,
+            "phone_prefixes": list_phone_prefixes(),
+            "next_url": auth.safe_next_url(next_url),
+        },
     )
 
 
@@ -186,12 +193,18 @@ def login_submit(
     email: str | None = Form(None),
     identifier: str | None = Form(None),
     password: str = Form(...),
+    next_url: str | None = Form(default=None, alias="next"),
 ):
+    safe_next = auth.safe_next_url(next_url)
     target = (identifier or email or "").strip()
     if not target:
         return templates.TemplateResponse(
             request, "login.html",
-            {"error": "Indica o teu email ou número de telefone.", "phone_prefixes": list_phone_prefixes()},
+            {
+                "error": "Indica o teu email ou número de telefone.",
+                "phone_prefixes": list_phone_prefixes(),
+                "next_url": safe_next,
+            },
             status_code=401,
         )
 
@@ -199,42 +212,16 @@ def login_submit(
     if user is None or not auth.verify_password(password, user["password_hash"]):
         return templates.TemplateResponse(
             request, "login.html",
-            {"error": "Email/Telefone ou password incorretos.", "phone_prefixes": list_phone_prefixes()},
+            {
+                "error": "Email/Telefone ou password incorretos.",
+                "phone_prefixes": list_phone_prefixes(),
+                "next_url": safe_next,
+            },
             status_code=401,
         )
 
     auth.login_user(request, user["user_id"])
-    return RedirectResponse("/explorar", status_code=303)
-
-
-@router.get("/auth/google", response_class=HTMLResponse)
-@router.post("/auth/google", response_class=HTMLResponse)
-def google_auth(
-    request: Request,
-    google_id: str | None = Form(None),
-    email: str | None = Form(None),
-    name: str | None = Form(None),
-):
-    """Registo e Entrada rápida com Conta Google."""
-    target_google_id = (google_id or request.query_params.get("google_id") or "google_demo_user").strip()
-    target_email = (email or request.query_params.get("email") or "utilizador.google@gmail.com").strip().lower()
-    target_name = (name or request.query_params.get("name") or "Utilizador Google").strip()
-
-    user = db.get_user_by_google_id(target_google_id) or db.get_user_by_email(target_email)
-    if user is None:
-        user_id = uuid.uuid4().hex
-        db.create_user_full(
-            user_id=user_id,
-            display_name=target_name,
-            email=target_email,
-            google_id=target_google_id,
-            auth_provider="google",
-        )
-        auth.login_user(request, user_id)
-    else:
-        auth.login_user(request, user["user_id"])
-
-    return RedirectResponse("/explorar", status_code=303)
+    return RedirectResponse(safe_next, status_code=303)
 
 
 @router.post("/sair")

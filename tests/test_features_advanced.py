@@ -8,9 +8,6 @@ from app.auth import hash_password
 from app.pipeline import CaptionResult
 from app.storage import UploadedFile
 
-client = TestClient(app)
-
-
 def _fake_caption(*args, **kwargs):
     return CaptionResult(
         caption="Texto de teste.",
@@ -31,17 +28,27 @@ def _fake_upload(key, data, content_type):
     )
 
 
+def _no_image(*args, **kwargs):
+    from app.pipeline import GenerationError
+
+    raise GenerationError("imagem desativada no teste")
+
+
 @pytest.fixture
-def auth_client():
+def auth_client(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.db")
+    from app.routers import posts as posts_router
+
+    monkeypatch.setattr(posts_router, "generate_image", _no_image)
+
     uid = uuid.uuid4().hex[:8]
     user_id = f"test_user_adv_{uid}"
     email = f"advanced_{uid}@exemplo.mz"
-    pwd_hash = hash_password("senha12345")
-    db.create_user(user_id, email, pwd_hash, "Utilizador Avançado")
-
-    test_c = TestClient(app)
-    test_c.post("/entrar", data={"email": email, "password": "senha12345"})
-    return test_c, user_id
+    with TestClient(app) as test_c:
+        pwd_hash = hash_password("senha12345")
+        db.create_user(user_id, email, pwd_hash, "Utilizador Avançado")
+        test_c.post("/entrar", data={"email": email, "password": "senha12345"})
+        yield test_c, user_id
 
 
 @patch("app.routers.posts.generate_caption", side_effect=_fake_caption)

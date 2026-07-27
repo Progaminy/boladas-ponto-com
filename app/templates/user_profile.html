@@ -125,12 +125,16 @@
           {% for row in posts %}
             <div class="card" style="background: #171A21; border: 1px solid #2D3748; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
 
-              <!-- BADGE DE ESTADO (ATIVO / PENDENTE / VENDIDO) -->
+              <!-- Estado técnico do pipeline e disponibilidade comercial são independentes. -->
               <div style="position: absolute; top: 10px; right: 10px; z-index: 5;">
-                {% if row['status'] == 'vendido' %}
+                {% if row['status'] != 'completed' %}
+                  <span style="background: #4B5563; color: white; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">
+                    {% if row['status'] == 'failed' %}⚠️ FALHOU{% else %}⏳ {{ row['status'] | upper }}{% endif %}
+                  </span>
+                {% elif row['listing_status'] == 'sold' %}
                   <span style="background: #EF4444; color: white; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">🏁 VENDIDO</span>
-                {% elif row['status'] == 'pendente' %}
-                  <span style="background: #F59E0B; color: #78350F; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">🟡 PENDENTE</span>
+                {% elif row['listing_status'] == 'paused' %}
+                  <span style="background: #F59E0B; color: #78350F; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">⏸️ PAUSADO</span>
                 {% else %}
                   <span style="background: #10B981; color: #064E3B; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">🟢 ATIVO</span>
                 {% endif %}
@@ -155,28 +159,34 @@
                 </div>
 
                 {% if is_owner %}
-                  <!-- PAINEL DE CONTROLO DO PRODUTO (MARCAR COMO PENDENTE / VENDIDO / FATURA / ELIMINAR) -->
+                  <!-- PAINEL DE CONTROLO DO PRODUTO (DISPONIBILIDADE / FATURA / ELIMINAR) -->
                   <div style="margin-top: 0.8rem; border-top: 1px solid #2D3748; padding-top: 0.8rem;">
+                    {% if row['status'] == 'completed' %}
                     <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
-                      {% if row['status'] != 'pendente' %}
+                      {% if row['listing_status'] != 'paused' %}
                         <form method="post" action="/posts/{{ row['post_id'] }}/estado" style="display: inline;">
-                          <input type="hidden" name="new_status" value="pendente" />
-                          <button type="submit" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #D97706; color: white; border: none; border-radius: 4px; cursor: pointer;">🟡 Pendente</button>
+                          <input type="hidden" name="new_status" value="paused" />
+                          <button type="submit" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #D97706; color: white; border: none; border-radius: 4px; cursor: pointer;">⏸️ Pausar</button>
                         </form>
                       {% endif %}
-                      {% if row['status'] != 'ativo' %}
+                      {% if row['listing_status'] != 'active' %}
                         <form method="post" action="/posts/{{ row['post_id'] }}/estado" style="display: inline;">
-                          <input type="hidden" name="new_status" value="ativo" />
+                          <input type="hidden" name="new_status" value="active" />
                           <button type="submit" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #059669; color: white; border: none; border-radius: 4px; cursor: pointer;">🟢 Reativar</button>
                         </form>
                       {% endif %}
-                      {% if row['status'] != 'vendido' %}
+                      {% if row['listing_status'] != 'sold' %}
                         <form method="post" action="/posts/{{ row['post_id'] }}/estado" style="display: inline;">
-                          <input type="hidden" name="new_status" value="vendido" />
+                          <input type="hidden" name="new_status" value="sold" />
                           <button type="submit" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #DC2626; color: white; border: none; border-radius: 4px; cursor: pointer;">🏁 Vendido</button>
                         </form>
                       {% endif %}
                     </div>
+                    {% else %}
+                      <p class="muted" style="font-size:0.78rem; margin:0 0 0.6rem;">
+                        A disponibilidade poderá ser gerida quando o processamento terminar.
+                      </p>
+                    {% endif %}
 
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                       <a href="/posts/{{ row['post_id'] }}/fatura.pdf" style="color: #34D399; font-size: 0.8rem; font-weight: 600; text-decoration: none;">📄 Fatura PDF</a>

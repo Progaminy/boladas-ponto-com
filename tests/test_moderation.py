@@ -89,8 +89,8 @@ def test_report_hides_post_from_non_owner(client, monkeypatch):
     assert tx["moderation_status"] == "reported"
 
     view = client.get("/posts/post-mod-1")
-    assert view.status_code == 403
-    assert "em revisão" in view.text.lower()
+    assert view.status_code == 404
+    assert "post não encontrado" in view.text.lower()
 
 
 def test_owner_can_still_see_own_reported_post(client):

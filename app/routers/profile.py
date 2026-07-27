@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app import db
-from app.auth import get_current_user
+from app.auth import get_current_user, login_redirect
 from app.media_validate import MediaValidationError, validate_photo
 from app.storage import StorageError, business_key, upload_and_verify, user_key
 from app.templating import templates
@@ -17,7 +17,7 @@ router = APIRouter()
 def my_profile_redirect(request: Request):
     user = get_current_user(request)
     if user is None:
-        return RedirectResponse("/entrar", status_code=303)
+        return login_redirect(request)
     tab = request.query_params.get("tab") or "produtos"
     created = request.query_params.get("created")
     url = f"/utilizador/{user['user_id']}?tab={tab}"
@@ -30,7 +30,7 @@ def my_profile_redirect(request: Request):
 def user_profile(request: Request, user_id: str):
     current_user = get_current_user(request)
     if current_user is None:
-        return RedirectResponse("/entrar", status_code=303)
+        return login_redirect(request)
 
     profile_user = db.get_user_by_id(user_id)
     if profile_user is None:
@@ -85,7 +85,7 @@ def user_profile(request: Request, user_id: str):
 def my_photos_form(request: Request):
     user = get_current_user(request)
     if user is None:
-        return RedirectResponse("/entrar", status_code=303)
+        return login_redirect(request)
 
     return templates.TemplateResponse(request, "photos_form.html", {"error": None, "target": "user"})
 
@@ -116,7 +116,7 @@ async def my_photos_upload(
 def business_photos_form(request: Request, business_id: str):
     user = get_current_user(request)
     if user is None:
-        return RedirectResponse("/entrar", status_code=303)
+        return login_redirect(request)
 
     biz = db.get_business(business_id)
     if biz is None or not db.can_manage_business(business_id, user["user_id"]):

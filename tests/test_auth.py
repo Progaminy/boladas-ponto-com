@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from urllib.parse import parse_qs, urlsplit
 
 from app import auth
 from app import db as db_module
@@ -12,6 +13,13 @@ def client(tmp_path, monkeypatch):
 
     with TestClient(app) as c:
         yield c
+
+
+def assert_login_redirect(response, expected_next: str) -> None:
+    assert response.status_code == 303
+    location = urlsplit(response.headers["location"])
+    assert location.path == "/entrar"
+    assert parse_qs(location.query) == {"next": [expected_next]}
 
 
 def test_hash_password_roundtrip():
@@ -74,20 +82,97 @@ def test_login_wrong_password_rejected(client):
 
 
 def test_protected_routes_redirect_when_logged_out(client):
-    for path in ["/criar", "/historico", "/empresa"]:
+    for path in ["/criar", "/historico"]:
         resp = client.get(path, follow_redirects=False)
-        assert resp.status_code == 303, path
-        assert resp.headers["location"] == "/entrar", path
+        assert_login_redirect(resp, path)
+
+    # Esta rota pertence ao módulo de empresas, fora do fluxo alterado aqui.
+    resp = client.get("/empresa", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/entrar"
 
 
 def test_feed_and_comparator_redirect_without_session(client):
     resp = client.get("/explorar", follow_redirects=False)
-    assert resp.status_code == 303
-    assert resp.headers["location"] == "/entrar"
+    assert_login_redirect(resp, "/explorar")
 
     resp = client.get("/comparar", follow_redirects=False)
+    assert_login_redirect(resp, "/comparar")
+
+
+def test_login_returns_to_local_path_and_preserves_query(client):
+    client.post(
+        "/registar",
+        data={
+            "email": "retorno@exemplo.co.mz",
+            "password": "password123",
+            "display_name": "Retorno",
+            "terms_accepted": "on",
+        },
+        follow_redirects=False,
+    )
+    client.post("/sair", follow_redirects=False)
+
+    destination = "/comparar?q=cimento&sort=price_desc"
+    protected = client.get(destination, follow_redirects=False)
+    assert_login_redirect(protected, destination)
+
+    login_page = client.get(protected.headers["location"])
+    assert login_page.status_code == 200
+    assert 'name="next"' in login_page.text
+    assert 'value="/comparar?q=cimento&amp;sort=price_desc"' in login_page.text
+
+    logged_in = client.post(
+        "/entrar",
+        data={
+            "identifier": "retorno@exemplo.co.mz",
+            "password": "password123",
+            "next": destination,
+        },
+        follow_redirects=False,
+    )
+    assert logged_in.status_code == 303
+    assert logged_in.headers["location"] == destination
+
+
+@pytest.mark.parametrize(
+    "unsafe",
+    [
+        "https://evil.example/roubar",
+        "//evil.example/roubar",
+        r"/\\evil.example/roubar",
+        "javascript:alert(1)",
+        "/destino\nX-Header: injetado",
+    ],
+)
+def test_safe_next_url_rejects_external_or_ambiguous_destinations(unsafe):
+    assert auth.safe_next_url(unsafe) == "/explorar"
+
+
+def test_login_post_cannot_redirect_to_external_site(client):
+    client.post(
+        "/registar",
+        data={
+            "email": "seguro@exemplo.co.mz",
+            "password": "password123",
+            "display_name": "Seguro",
+            "terms_accepted": "on",
+        },
+        follow_redirects=False,
+    )
+    client.post("/sair", follow_redirects=False)
+
+    resp = client.post(
+        "/entrar",
+        data={
+            "identifier": "seguro@exemplo.co.mz",
+            "password": "password123",
+            "next": "https://evil.example/roubar",
+        },
+        follow_redirects=False,
+    )
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/entrar"
+    assert resp.headers["location"] == "/explorar"
 
 
 def test_create_post_without_session_returns_401(client):
@@ -172,8 +257,7 @@ def test_personal_profile_requires_login_and_hides_auth_data_from_other_users(cl
     client.post("/sair", follow_redirects=False)
 
     resp = client.get(f"/utilizador/{owner['user_id']}", follow_redirects=False)
-    assert resp.status_code == 303
-    assert resp.headers["location"] == "/entrar"
+    assert_login_redirect(resp, f"/utilizador/{owner['user_id']}")
 
     client.post(
         "/registar",

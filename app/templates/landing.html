@@ -6,9 +6,9 @@
   <h1 class="hero-title">Boladas-ponto-com</h1>
   <p class="hero-slogan">Do zero ao infinito.</p>
   <p class="hero-subtitle">
-    Descreve o que vendes — a Boladas gera a imagem, a legenda, a chamada para
-    ação e as hashtags com IA (Genblaze + GMICloud), guarda tudo no Backblaze B2
-    e mantém um registo verificável de como cada post foi feito.
+    Descreve o que vendes — a Boladas transforma o briefing num anúncio,
+    orquestra a IA com Genblaze, guarda no Backblaze B2 apenas os artefactos
+    realmente produzidos e conserva uma origem verificável para cada post.
   </p>
   <div class="hero-actions">
     <a href="/registar" class="btn-primary">Criar conta grátis</a>
@@ -26,11 +26,11 @@
     </div>
     <div class="step">
       <span class="step-num">2</span>
-      <p><strong>A IA gera o post</strong><br />imagem 1080×1080, legenda, CTA e hashtags — via Genblaze.</p>
+      <p><strong>O Genblaze cria o conteúdo</strong><br />legenda, CTA e hashtags; quando o provedor permite, também uma imagem 1080×1080.</p>
     </div>
     <div class="step">
       <span class="step-num">3</span>
-      <p><strong>Guardado no B2</strong><br />cada ficheiro é verificado por SHA-256 real após o upload.</p>
+      <p><strong>Guardado e comprovado no B2</strong><br />cada ficheiro volta a ser descarregado e verificado por SHA-256.</p>
     </div>
     <div class="step">
       <span class="step-num">4</span>
@@ -42,10 +42,11 @@
 <section class="landing-section">
   <div class="card" style="border-left-color:var(--accent);">
     <h2 style="margin-top:0;">O princípio "Nunca fingir"</h2>
-    <p>Um post só aparece como concluído depois de o Genblaze gerar mesmo a
-    imagem e a legenda, e de cada ficheiro ser confirmado no Backblaze B2 —
-    reenviado, descarregado de volta e comparado byte a byte. Se algo falhar,
-    a Boladas mostra o erro real. Nunca inventa um resultado.</p>
+    <p>A Boladas nunca inventa uma imagem, uma execução de IA nem um ficheiro.
+    Se a quota de imagem estiver indisponível, o anúncio diz isso claramente e
+    publica apenas o conteúdo que existe. Tudo o que o manifesto declara foi
+    enviado ao Backblaze B2, descarregado de volta e comparado por SHA-256.</p>
+    <p><a href="/estado">Ver o diagnóstico real dos serviços</a></p>
   </div>
 </section>
 
@@ -60,7 +61,7 @@
   {% if categories %}
   <div class="swatch-grid">
     {% for c in categories %}
-    <span class="swatch" style="background:{{ c.accent }}; color:{{ '#14100a' if c.accent != '#171717' else '#fff' }};">{{ c.label }}</span>
+    <span class="swatch" style="background:{{ c.accent_dark }}; color:#fff;">{{ c.label }}</span>
     {% endfor %}
   </div>
   <p class="muted" style="font-size:0.85rem;">...e mais de 20 outras categorias, ou escreve a tua própria.</p>
