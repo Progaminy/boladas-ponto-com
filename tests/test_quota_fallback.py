@@ -78,7 +78,6 @@ def test_quota_429_fallback_completes_post_and_stores_files_in_b2(
     assert post["provenance_key"] is not None
 
 
-def test_public_is_redirected_to_login_before_browsing_feed(client):
+def test_public_can_browse_the_feed_without_an_account(client):
     resp = client.get("/explorar", follow_redirects=False)
-    assert resp.status_code == 303
-    assert resp.headers["location"] == "/entrar?next=%2Fexplorar"
+    assert resp.status_code == 200

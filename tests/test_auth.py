@@ -92,12 +92,12 @@ def test_protected_routes_redirect_when_logged_out(client):
     assert resp.headers["location"] == "/entrar"
 
 
-def test_feed_and_comparator_redirect_without_session(client):
-    resp = client.get("/explorar", follow_redirects=False)
-    assert_login_redirect(resp, "/explorar")
-
-    resp = client.get("/comparar", follow_redirects=False)
-    assert_login_redirect(resp, "/comparar")
+def test_feed_and_comparator_are_public(client):
+    """Ver o que se vende não exige conta: quem chega tem de poder avaliar a
+    plataforma antes de se registar. O que exige sessão é agir — publicar,
+    reagir, comentar, contactar."""
+    assert client.get("/explorar", follow_redirects=False).status_code == 200
+    assert client.get("/comparar", follow_redirects=False).status_code == 200
 
 
 def test_login_returns_to_local_path_and_preserves_query(client):
@@ -113,14 +113,16 @@ def test_login_returns_to_local_path_and_preserves_query(client):
     )
     client.post("/sair", follow_redirects=False)
 
-    destination = "/comparar?q=cimento&sort=price_desc"
+    # rota que continua protegida: o feed e o comparador passaram a ser
+    # públicos, por isso já não servem para testar o retorno após login
+    destination = "/historico?estado=completed&pagina=2"
     protected = client.get(destination, follow_redirects=False)
     assert_login_redirect(protected, destination)
 
     login_page = client.get(protected.headers["location"])
     assert login_page.status_code == 200
     assert 'name="next"' in login_page.text
-    assert 'value="/comparar?q=cimento&amp;sort=price_desc"' in login_page.text
+    assert 'value="/historico?estado=completed&amp;pagina=2"' in login_page.text
 
     logged_in = client.post(
         "/entrar",

@@ -18,9 +18,8 @@ def compare_prices_page(
     lon: float | None = None,
     sort: str = "price_asc",
 ):
+    # Comparar preços é consulta, não ação: fica público como o feed.
     current_user = get_current_user(request)
-    if current_user is None:
-        return login_redirect(request)
 
     results = db.compare_prices_and_proximity(
         search_query=q,

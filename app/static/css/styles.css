@@ -799,3 +799,5 @@ a { color: var(--accent); }
   color: #F9FAFB;
   border-bottom-left-radius: 2px;
 }
+
+.hero-nota { margin-top: 0.9rem; font-size: 0.85rem; }
