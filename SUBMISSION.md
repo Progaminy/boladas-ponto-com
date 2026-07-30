@@ -49,9 +49,10 @@ A plataforma utiliza um pipeline multi-provider resiliente:
 1. **Diretório Público de Empresas (`/empresas`)**:
    - Páginas completas com capas, logótipos, localização, catálogo de produtos e gestores. A instalação local inclui empresas fictícias claramente identificadas como dados de demonstração.
 2. **Comparador de Preços & GPS Proximidade (`/comparar`)**:
-   - Disponível depois do login, com comparação de preços em Meticais (`MT`) e integração com a API `navigator.geolocation` do navegador para calcular a distância exata em quilómetros (`🚗 1.2 km de distância`) até à loja física mais próxima.
-3. **Apresentação Pública + Feed Social Autenticado (`/` e `/explorar`)**:
-   - `/` apresenta o produto antes do login; `/explorar` concentra os cartões, reações e comentários depois da autenticação.
+   - Público, sem necessidade de conta, com comparação de preços em Meticais (`MT`) e integração com a API `navigator.geolocation` do navegador para calcular a distância exata em quilómetros (`🚗 1.2 km de distância`) até à loja física mais próxima.
+3. **Feed Social Público (`/` e `/explorar`)**:
+   - **Ver não exige conta.** `/` apresenta o produto a quem chega, com acesso direto ao feed; `/explorar` mostra os cartões, preços e comentários a qualquer visitante. Cada anúncio (`/posts/<id>`) e a sua proveniência são igualmente públicos, para que a origem de um post possa ser verificada sem registo.
+   - **Agir exige sessão**: publicar, reagir, comentar, contactar um vendedor ou gerir uma empresa. Quem tentar sem conta é levado ao login e regressa ao mesmo ponto — nunca a um erro.
 4. **Messenger Boladas & Mediação Humana (`872599084`)**:
    - Ficha de contexto do produto no topo do chat e botão `🆘 Pedir Assistência Humana` para apoio direto da equipa da plataforma.
 5. **Autonomia & Temas Festivos (`/perfil/fotos` e `/empresa/{id}`)**:
