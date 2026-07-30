@@ -96,7 +96,7 @@ B2_REGION=us-east-005
 AI_PROVIDER=auto                 # auto | vertex | gmicloud
 VERTEX_EXPRESS_API_KEY=...       # Gemini via Vertex AI Express (principal)
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
-GEMINI_CHAT_MODEL=gemini-2.5-flash
+GEMINI_CHAT_MODEL=gemini-flash-latest
 GMI_API_KEY=...                  # https://console.gmicloud.ai/ (fallback)
 
 SESSION_SECRET_KEY=... # python3 -c "import os; print(os.urandom(32).hex())"

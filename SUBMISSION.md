@@ -38,7 +38,7 @@ A plataforma serve tanto vendedores individuais como empresas físicas (Farmáci
 ## 🤖 Resiliência & Provedores de Inteligência Artificial
 
 A plataforma utiliza um pipeline multi-provider resiliente:
-- **Provedor Principal**: **Gemini via Vertex AI Express** (`gemini-2.5-flash-image` para imagem, `gemini-2.5-flash` para legenda e moderação visual).
+- **Provedor Principal**: **Gemini via Vertex AI Express** (`gemini-2.5-flash-image` para imagem, `gemini-flash-latest` para legenda e moderação visual).
 - **Provedor Fallback**: **GMICloud** (`seedream-5.0-lite` para imagem, `DeepSeek-V3` para texto).
 - **Resiliência contra Quota Exaurida (HTTP 429)**: se os provedores de IA excederem o limite, o sistema usa como legenda de reserva o texto fornecido pelo vendedor e publica sem imagem gerada. A ausência e o erro real ficam no manifesto. Quando existe imagem, o nome, preço e CTA são compostos deterministicamente com Pillow.
 
@@ -83,7 +83,7 @@ B2_REGION=us-east-005
 AI_PROVIDER=auto
 VERTEX_EXPRESS_API_KEY=sua_chave_vertex_express
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
-GEMINI_CHAT_MODEL=gemini-2.5-flash
+GEMINI_CHAT_MODEL=gemini-flash-latest
 GMI_API_KEY=sua_chave_gmicloud
 ```
 

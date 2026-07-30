@@ -22,7 +22,7 @@ services:
       - key: GEMINI_IMAGE_MODEL
         value: gemini-2.5-flash-image
       - key: GEMINI_CHAT_MODEL
-        value: gemini-2.5-flash
+        value: gemini-flash-latest
       - key: GMI_API_KEY
         sync: false
       - key: GMI_IMAGE_MODEL
