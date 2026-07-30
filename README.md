@@ -89,10 +89,10 @@ cp .env.example .env
 
 ```dotenv
 B2_KEY_ID=...          # https://secure.backblaze.com/app_keys.htm
-                       # A Application Key precisa de acesso a TODO o bucket.
-                       # Uma chave restrita a um prefixo (ex.: só `posts/`) faz
-                       # os posts funcionarem mas recusa as fotos de perfil e
-                       # capa, que vivem em `users/` e `businesses/`.
+                       # Se a Application Key estiver restrita a um prefixo
+                       # (ex.: só `posts/`), define B2_MEDIA_PREFIX=posts/ —
+                       # senão o B2 recusa as fotos de perfil/capa com
+                       # "not entitled". Com acesso total, deixa-o vazio.
 B2_APP_KEY=...
 B2_BUCKET=pensador-sem-fronteiras-media
 B2_REGION=us-east-005

@@ -7,7 +7,13 @@ from dataclasses import dataclass
 
 from genblaze_s3 import S3StorageBackend
 
-from app.config import B2_APP_KEY, B2_BUCKET, B2_KEY_ID, b2_configured
+from app.config import (
+    B2_APP_KEY,
+    B2_BUCKET,
+    B2_KEY_ID,
+    B2_MEDIA_PREFIX,
+    b2_configured,
+)
 
 
 class StorageError(RuntimeError):
@@ -44,11 +50,11 @@ def post_key(post_id: str, filename: str) -> str:
 
 
 def user_key(user_id: str, filename: str) -> str:
-    return f"users/{user_id}/{filename}"
+    return f"{B2_MEDIA_PREFIX}users/{user_id}/{filename}"
 
 
 def business_key(business_id: str, filename: str) -> str:
-    return f"businesses/{business_id}/{filename}"
+    return f"{B2_MEDIA_PREFIX}businesses/{business_id}/{filename}"
 
 
 def sha256_hex(data: bytes) -> str:

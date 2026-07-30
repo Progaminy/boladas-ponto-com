@@ -15,6 +15,8 @@ services:
         value: pensador-sem-fronteiras-media
       - key: B2_REGION
         value: us-east-005
+      - key: B2_MEDIA_PREFIX
+        sync: false
       - key: AI_PROVIDER
         value: auto
       - key: VERTEX_EXPRESS_API_KEY

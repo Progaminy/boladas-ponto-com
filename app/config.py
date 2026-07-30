@@ -18,6 +18,16 @@ B2_KEY_ID = os.environ.get("B2_KEY_ID")
 B2_APP_KEY = os.environ.get("B2_APP_KEY")
 B2_BUCKET = os.environ.get("B2_BUCKET", "pensador-sem-fronteiras-media")
 
+# Prefixo para a média de contas e empresas (fotos de perfil e capa).
+# Existe porque uma Application Key do B2 pode estar restrita a um prefixo:
+# nesse caso os posts funcionam e as fotos são recusadas com "not entitled".
+# Definir B2_MEDIA_PREFIX=posts/ faz as fotos caberem dentro do prefixo
+# permitido, sem alterar o layout `posts/<post_id>/...` que o concurso exige.
+# Com uma chave de acesso total, deixar vazio.
+B2_MEDIA_PREFIX = os.environ.get("B2_MEDIA_PREFIX", "").strip().lstrip("/")
+if B2_MEDIA_PREFIX and not B2_MEDIA_PREFIX.endswith("/"):
+    B2_MEDIA_PREFIX += "/"
+
 # Provedor de IA. Em "auto", tenta o Vertex AI Express primeiro e recorre ao
 # GMICloud se o primeiro não estiver configurado ou falhar.
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "auto").strip().lower()
