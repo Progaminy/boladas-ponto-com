@@ -64,9 +64,18 @@ def upload_and_verify(key: str, data: bytes, content_type: str) -> UploadedFile:
     backend = get_backend()
     local_digest = sha256_hex(data)
 
-    backend.put(key, data, content_type=content_type)
+    # O SDK levanta a sua própria StorageError (genblaze_core.exceptions), que
+    # não é a nossa. Sem esta tradução, uma recusa do B2 — por exemplo uma
+    # chave sem permissão para este prefixo — escapava a todos os `except
+    # StorageError` dos chamadores e chegava ao utilizador como um 500.
+    try:
+        backend.put(key, data, content_type=content_type)
+        meta = backend.head(key)
+    except StorageError:
+        raise
+    except Exception as exc:
+        raise StorageError(f"O Backblaze B2 recusou o envio de {key}: {exc}") from exc
 
-    meta = backend.head(key)
     if meta is None:
         raise StorageError(f"Upload não confirmado: {key} não existe no B2 após o put().")
     if meta.size != len(data):
