@@ -51,7 +51,7 @@ Qualquer visitante ou utilizador registado pode consultar as seguintes regras e 
 
 - **Backend + frontend**: FastAPI + Jinja2 (um único serviço Python).
 - **Geração**: [`genblaze`](https://pypi.org/project/genblaze-core/) (`genblaze-core` + `genblaze-gmicloud` + `genblaze-s3`) com **dois provedores**, definidos por `AI_PROVIDER` (`auto` por omissão: tenta o Vertex primeiro e recorre ao GMICloud):
-  - **Gemini** (principal) — `gemini-2.5-flash-image` para imagem e `gemini-flash-latest` para texto e visão. Texto e imagem passam por `SyncProvider`s do Genblaze (`app/gemini_provider.py`), preservando o `Pipeline`, o manifesto e a cadeia de proveniência.
+  - **Gemini** (principal) — imagem pelo provider oficial do Genblaze **`GeminiImageProvider`** (`genblaze-google`, slug `google-gemini-image`), modelo `gemini-2.5-flash-image`; texto e visão por um `SyncProvider` próprio (`app/gemini_provider.py`) com `gemini-flash-latest`, porque o SDK ainda não expõe um provider de texto. Ambos correm dentro do `Pipeline`, preservando o manifesto e a cadeia de proveniência.
   - **GMICloud** (fallback) — `seedream-5.0-lite` para imagem e `deepseek-ai/DeepSeek-V3-0324` para texto.
 
   Se todos os provedores configurados falharem, o erro devolvido contém a razão real de cada um.
@@ -172,7 +172,7 @@ app/
 ├── auth.py                 # hash de password (bcrypt), sessão, get_current_user
 ├── db.py                    # SQLite: users, businesses (várias por user), posts,
 │                             # messages, product_media, transactions, reports
-├── gemini_provider.py          # SyncProvider Genblaze p/ Gemini (Vertex Express)
+├── gemini_provider.py          # SyncProviders de texto (Gemini e GMICloud)
 ├── pipeline.py                  # geração real via Genblaze (Vertex/GMICloud)
 ├── image_compose.py            # sobrepõe nome/preço/CTA na imagem com Pillow
 ├── media_validate.py            # valida fotos/vídeo (Pillow + ffprobe), limites reais

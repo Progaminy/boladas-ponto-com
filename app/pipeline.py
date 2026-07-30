@@ -15,7 +15,9 @@ from urllib.parse import unquote, urlparse
 import httpx
 from PIL import Image
 from genblaze_core import Modality, Pipeline
+from genblaze_core.providers import RetryPolicy
 from genblaze_gmicloud import GMICloudImageProvider
+from genblaze_google import GeminiImageProvider
 
 from app.categories import Category
 from app.config import (
@@ -32,7 +34,6 @@ from app.config import (
 from app.formatting import format_price_mt
 from app.gemini_provider import (
     GMICloudTextProvider,
-    VertexExpressImageProvider,
     VertexExpressTextProvider,
 )
 from app.models import PostInput
@@ -40,6 +41,18 @@ from app.models import PostInput
 
 class GenerationError(RuntimeError):
     pass
+
+
+# Backoff limitado para 429. O plano gratuito impõe um limite por minuto além
+# do limite diário: uma espera curta resolve o primeiro, e nada resolve o
+# segundo. Poucas tentativas, portanto — insistir numa quota diária esgotada
+# só faria o utilizador esperar sem resultado.
+_RATE_LIMIT_RETRY = RetryPolicy(
+    max_attempts=3,
+    initial_backoff_sec=2.0,
+    max_backoff_sec=20.0,
+    respect_retry_after=True,
+)
 
 
 @dataclass
@@ -185,9 +198,14 @@ def _run_image_pipeline(
 def _generate_image_vertex(prompt: str) -> ImageResult:
     if not VERTEX_EXPRESS_API_KEY:
         raise GenerationError("VERTEX_EXPRESS_API_KEY não configurada.")
+    # Provider oficial do Genblaze (genblaze-google, 'google-gemini-image').
+    # Substitui o adaptador que escrevemos à mão antes de existir: menos
+    # código nosso no caminho crítico e beneficia das correções do SDK.
     return _run_image_pipeline(
-        provider=VertexExpressImageProvider(),
-        provider_name="google-vertex-express",
+        provider=GeminiImageProvider(
+            api_key=VERTEX_EXPRESS_API_KEY, retry_policy=_RATE_LIMIT_RETRY
+        ),
+        provider_name="google-gemini-image",
         model=GEMINI_IMAGE_MODEL,
         prompt=prompt,
         params={},
@@ -198,7 +216,7 @@ def _generate_image_gmi(prompt: str) -> ImageResult:
     if not GMI_API_KEY:
         raise GenerationError("GMI_API_KEY não configurada.")
     return _run_image_pipeline(
-        provider=GMICloudImageProvider(),
+        provider=GMICloudImageProvider(retry_policy=_RATE_LIMIT_RETRY),
         provider_name="gmicloud",
         model=GMI_IMAGE_MODEL,
         prompt=prompt,
@@ -378,7 +396,9 @@ def _generate_caption_vertex(data: PostInput, prompt: str) -> CaptionResult:
         raise GenerationError("VERTEX_EXPRESS_API_KEY não configurada.")
     return _run_caption_pipeline(
         data,
-        provider=VertexExpressTextProvider(api_key=VERTEX_EXPRESS_API_KEY),
+        provider=VertexExpressTextProvider(
+            api_key=VERTEX_EXPRESS_API_KEY, retry_policy=_RATE_LIMIT_RETRY
+        ),
         provider_name="google-vertex-express",
         model=GEMINI_CHAT_MODEL,
         prompt=prompt,
@@ -391,7 +411,9 @@ def _generate_caption_gmi(data: PostInput, prompt: str) -> CaptionResult:
         raise GenerationError("GMI_API_KEY não configurada.")
     return _run_caption_pipeline(
         data,
-        provider=GMICloudTextProvider(api_key=GMI_API_KEY),
+        provider=GMICloudTextProvider(
+            api_key=GMI_API_KEY, retry_policy=_RATE_LIMIT_RETRY
+        ),
         provider_name="gmicloud",
         model=GMI_CHAT_MODEL,
         prompt=prompt,
