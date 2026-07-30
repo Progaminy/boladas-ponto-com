@@ -18,7 +18,7 @@ entre comprador e vendedor.
 
 **Narração:**
 
-> Este é o Boladas-ponto-com. Do zero ao infinito. Antes do login, a página pública apresenta a proposta: criar anúncios com inteligência artificial e conservar uma origem verificável no Backblaze B2.
+> Este é o Boladas-ponto-com. Do zero ao infinito. A página de entrada apresenta a proposta a quem chega, sem exigir conta: criar anúncios com inteligência artificial e conservar uma origem verificável no Backblaze B2.
 
 ### 0:13–0:22.5 — Termos e entrada
 
@@ -34,9 +34,9 @@ entre comprador e vendedor.
 
 **Narração:**
 
-> No formulário, indicamos o email e a password da conta de demonstração. O feed só é aberto depois da autenticação.
+> Ver os anúncios não exige conta. Entramos com a conta de demonstração para mostrar o que só um membro pode fazer: publicar, reagir e contactar um vendedor.
 
-### 0:35–0:54.5 — Feed autenticado
+### 0:35–0:54.5 — Feed
 
 **Visual:** feed completo da utilizadora Ana Machava, filtros, cartões, interações
 e navegação privada; no fim, seta em “Comparar Preços & GPS”.
@@ -70,7 +70,7 @@ distância GPS em parte das ofertas.
 
 **Narração:**
 
-> Voltamos ao feed autenticado e abrimos o anúncio do Telemóvel Usado Samsung A12.
+> Voltamos ao feed e abrimos o anúncio do Telemóvel Usado Samsung A12.
 
 ### 1:18.5–1:31 — Detalhes do anúncio
 
@@ -109,7 +109,7 @@ contacto, assistência, comentários e seta em “Ver Proveniência B2”.
 
 ## Texto curto para a descrição do vídeo
 
-> Demonstração do Boladas-ponto-com: apresentação pública antes do login, feed e comparador protegidos por autenticação, comparação de preços com GPS, anúncio Samsung A12, tentativa transparente de obter a proveniência no Backblaze B2, formulário de publicação e gestão de empresa. Uma seta amarela identifica cada clique.
+> Demonstração do Boladas-ponto-com: página de entrada e feed públicos, comparador de preços aberto a qualquer visitante, comparação de preços com GPS, anúncio Samsung A12, tentativa transparente de obter a proveniência no Backblaze B2, formulário de publicação e gestão de empresa. Uma seta amarela identifica cada clique.
 
 ## Nota de edição
 

@@ -4,7 +4,7 @@
 
 Aplicação de geração de posts para redes sociais criada para o **Backblaze Generative Media Hackathon**. Transforma o briefing de um negócio (tema, produto/serviço, público-alvo, tom, chamada para ação, categoria, preço em Metical, localização e contacto) numa legenda, chamada para ação e hashtags prontas a publicar — e, quando há quota do provedor, numa imagem 1080×1080 — usando o SDK **[Genblaze](https://github.com/backblaze-labs/genblaze)** com **Gemini** como provedor principal e **GMICloud** como alternativa. Os artefactos realmente produzidos são guardados no **Backblaze B2** com um manifesto de proveniência verificável (SHA-256).
 
-Serve tanto empresas com marca própria (estilizadas por categoria de negócio, entre ~29 categorias, ou uma categoria personalizada escrita à mão) como utilizadores simples que querem anunciar sem ter uma marca. Cada utilizador regista-se, pode registar quantas empresas quiser (cada uma com o seu próprio perfil, categoria e fotos), publica posts em nome próprio ou de qualquer uma delas — o formulário fica simples por omissão para uma venda pessoal/eventual, e só pede os detalhes de marketing quando publicas como empresa — e explora os posts de outros negócios por categoria e localização para comparar preços. **Ver não exige conta**: o feed, o comparador de preços, cada anúncio e a sua proveniência são públicos, para que qualquer pessoa possa avaliar a plataforma — e verificar a origem de um post — antes de se registar. O que exige sessão é agir: publicar, reagir, comentar, contactar um vendedor ou gerir uma empresa. Cada post e a sua proveniência são partilháveis, para poderem ser divulgados e verificados por qualquer pessoa — a menos que tenha sido reportado e esteja pendente de revisão (ver moderação abaixo). O número `872599084` é o contacto fixo da plataforma para mediação entre compradores e vendedores.
+Serve tanto empresas com marca própria (estilizadas por categoria de negócio, entre 30 categorias, ou uma categoria personalizada escrita à mão) como utilizadores simples que querem anunciar sem ter uma marca. Cada utilizador regista-se, pode registar quantas empresas quiser (cada uma com o seu próprio perfil, categoria e fotos), publica posts em nome próprio ou de qualquer uma delas — o formulário fica simples por omissão para uma venda pessoal/eventual, e só pede os detalhes de marketing quando publicas como empresa — e explora os posts de outros negócios por categoria e localização para comparar preços. **Ver não exige conta**: o feed, o comparador de preços, cada anúncio e a sua proveniência são públicos, para que qualquer pessoa possa avaliar a plataforma — e verificar a origem de um post — antes de se registar. O que exige sessão é agir: publicar, reagir, comentar, contactar um vendedor ou gerir uma empresa. Cada post e a sua proveniência são partilháveis, para poderem ser divulgados e verificados por qualquer pessoa — a menos que tenha sido reportado e esteja pendente de revisão (ver moderação abaixo). O número `872599084` é o contacto fixo da plataforma para mediação entre compradores e vendedores.
 
 ## Princípio: Nunca fingir
 
@@ -65,7 +65,7 @@ Qualquer visitante ou utilizador registado pode consultar as seguintes regras e 
 - **Termos de Uso**: aceitação obrigatória no registo (`/termos`), deixando explícito que a plataforma não processa nem retém pagamentos.
 - **Transações**: checklist de confiança entre comprador e vendedor (`pendente → vendido → recebido`, com opção de mediação da equipa) — sem custódia de dinheiro (ver nota em "Estado atual").
 - **Moderação em três camadas**: (1) lista de bloqueio de texto local, sem custo, aplicada antes de gastar qualquer crédito de geração; (2) classificação textual por IA (Vertex, com GMICloud como fallback); (3) verificação visual real de fotos e vídeo com o Gemini. Qualquer camada de IA devolve "não verificado" — nunca "limpo" — se a chamada falhar. Por baixo de tudo, qualquer utilizador pode reportar um post, ocultando-o até um admin decidir em `/admin/moderacao`.
-- **Categorias e cor da plataforma**: cor oficial roxo escuro na interface; ~29 categorias com cores coerentes por omissão (ex.: farmácia branco, eletricidade laranja, mecânica azul-escuro); qualquer categoria fora da lista é aceite tal como escrita (nunca bloqueada), e há um botão para sugerir a categoria automaticamente a partir da descrição via IA (depende de um provedor de IA disponível).
+- **Categorias e cor da plataforma**: cor oficial roxo escuro na interface; 30 categorias com cores coerentes por omissão (ex.: farmácia branco, eletricidade laranja, mecânica azul-escuro); qualquer categoria fora da lista é aceite tal como escrita (nunca bloqueada), e há um botão para sugerir a categoria automaticamente a partir da descrição via IA (depende de um provedor de IA disponível).
 - **Fotos de perfil/capa**: uma foto de perfil e uma de capa para a conta pessoal, e o mesmo por cada empresa registada — o perfil pessoal em `/utilizador/<id>` exige sessão e a montra empresarial em `/negocio/<id>` é pública.
 - **Empresas com sócios**: uma empresa pode ter vários gestores, cada um com o seu próprio acesso. Todos publicam e editam; só o proprietário acrescenta ou remove gestores, e o proprietário nunca pode ser removido (uma empresa sem dono ficaria inacessível).
 - **Cadastro direto de empresa**: `/registar/empresa` cria a conta de acesso e o negócio num só passo, para quem só quer registar a loja e não uma conta pessoal.
@@ -121,12 +121,12 @@ Sem sessão:
 - `/termos` — Termos de Uso
 - `/estado` — diagnóstico real das ligações ao B2, Vertex e GMICloud
 - `/health` — health-check leve para o Render (não contacta serviços externos)
+- `/explorar` — feed de negócios, filtrável por categoria e localização
+- `/comparar` — comparação de preços e proximidade GPS
 - `/posts/<post_id>` e `/posts/<post_id>/provenance` — resultado e proveniência de um post, partilháveis (ex.: WhatsApp) e verificáveis por qualquer pessoa, incluindo os jurados, sem precisar de conta
 - `POST /posts/<post_id>/verificar` — verificação ao vivo do SHA-256 contra o B2
 
-Requer sessão (redireciona para `/entrar` se não autenticado):
-- `/explorar` — galeria de negócios, filtrável por categoria e localização
-- `/comparar` — comparação de preços e proximidade GPS
+Requer sessão (redireciona para `/entrar` se não autenticado, e regressa ao mesmo ponto depois de entrar):
 - `/criar` — formulário de criação de post
 - `/empresa` — lista das minhas empresas; `/empresa/nova` — registar outra
 - `/utilizador/<user_id>` — perfil pessoal autenticado; email, telefone e provedor de autenticação só aparecem ao próprio dono
@@ -141,7 +141,7 @@ Requer sessão (redireciona para `/entrar` se não autenticado):
 pytest -q
 ```
 
-137 testes passam sem custo e sem tocar em serviços externos (backend B2 simulado e base de dados SQLite isolada por teste); o teste de integração real permanece ignorado por omissão. Cobrem, entre outros:
+161 testes passam sem custo e sem tocar em serviços externos (backend B2 simulado e base de dados SQLite isolada por teste); o teste de integração real permanece ignorado por omissão. Cobrem, entre outros:
 
 - upload no B2 verificado por tamanho **e** SHA-256 remoto, incluindo um cenário de corrupção silenciosa (mesmo tamanho, conteúdo diferente);
 - verificação de proveniência ao vivo, incluindo deteção de um objeto adulterado no bucket e relato honesto de um ficheiro em falta;
@@ -167,7 +167,7 @@ app/
 ├── main.py            # app FastAPI, SessionMiddleware, routers, /health e /estado
 ├── config.py           # variáveis de ambiente, contacto da plataforma
 ├── models.py            # Pydantic: PostInput, UserCreate, BusinessInput, PostStatus...
-├── categories.py         # ~29 categorias de negócio → cor/estilo de imagem
+├── categories.py         # 30 categorias de negócio → cor/estilo de imagem
 ├── category_classify.py   # sugestão de categoria via IA (Vertex ou GMICloud)
 ├── auth.py                 # hash de password (bcrypt), sessão, get_current_user
 ├── db.py                    # SQLite: users, businesses (várias por user), posts,
