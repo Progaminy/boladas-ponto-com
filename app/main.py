@@ -13,7 +13,7 @@ from app.database_url_override import apply_pooler_host_override
 apply_pooler_host_override()
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -34,7 +34,7 @@ from app.database_backend import database_backend_name, install_database_backend
 # and local development.
 install_database_backend()
 
-from app.db import init_db
+from app.db import get_conn, init_db
 from app.diagnostics import run_all_checks
 from app.templating import templates
 from app.routers import (
@@ -103,6 +103,24 @@ def health() -> dict:
         "vertex_configured": vertex_configured(),
         "gmi_configured": gmi_configured(),
     }
+
+
+@app.get("/health/db")
+def database_health():
+    """Diagnóstico explícito da ligação ao banco, separado do health check do Render."""
+    try:
+        with get_conn() as conn:
+            conn.execute("SELECT 1").fetchone()
+        return {"ok": True, "database_backend": database_backend_name()}
+    except Exception as exc:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "ok": False,
+                "database_backend": database_backend_name(),
+                "error": str(exc)[:500],
+            },
+        )
 
 
 @app.get("/estado", response_class=HTMLResponse)
