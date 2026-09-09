@@ -19,6 +19,14 @@ from app.config import (
     gmi_configured,
     vertex_configured,
 )
+from app.database_backend import database_backend_name, install_database_backend
+
+# Must run before importing app.db: the legacy data-access layer talks to the
+# sqlite3 DB-API directly. With DATABASE_URL configured this transparently
+# switches those calls to PostgreSQL/Supabase while keeping SQLite for tests
+# and local development.
+install_database_backend()
+
 from app.db import init_db
 from app.diagnostics import run_all_checks
 from app.templating import templates
@@ -43,7 +51,11 @@ BASE_DIR = Path(__file__).resolve().parent
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    # SQLite owns its local schema and demo seed lifecycle. PostgreSQL/Supabase
+    # is migration-managed instead: a restricted runtime role must never need
+    # CREATE/ALTER/DROP privileges merely to start the web service.
+    if database_backend_name() == "sqlite":
+        init_db()
     provenance.reset_verification_rate_limits()
     yield
 
@@ -79,6 +91,7 @@ def health() -> dict:
     return {
         "app": APP_NAME,
         "version": APP_VERSION,
+        "database_backend": database_backend_name(),
         "b2_configured": b2_configured(),
         "vertex_configured": vertex_configured(),
         "gmi_configured": gmi_configured(),
