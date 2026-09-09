@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Boladas.com</title>
+</head>
+<body>
+  <p>A abrir Boladas…</p>
+  <script>
+    (function () {
+      const backend = 'https://boladas-ponto-com.onrender.com';
+      const projectBase = '/boladas-ponto-com';
+      let path = window.location.pathname || '/';
+      if (path.startsWith(projectBase)) path = path.slice(projectBase.length) || '/';
+      if (!path.startsWith('/')) path = '/' + path;
+      window.location.replace(backend + path + window.location.search + window.location.hash);
+    }());
+  </script>
+</body>
+</html>
