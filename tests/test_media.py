@@ -7,6 +7,7 @@ from PIL import Image
 
 from app import db as db_module
 from app.media_validate import (
+    MAX_PHOTOS,
     MediaValidationError,
     ffprobe_available,
     validate_photo,
@@ -75,6 +76,10 @@ def _make_video_bytes(duration_seconds: float) -> bytes:
 
 # --- validação pura (sem rede/servidor) --------------------------------------
 
+def test_product_photo_limit_is_two():
+    assert MAX_PHOTOS == 2
+
+
 def test_validate_photo_accepts_real_jpeg():
     validate_photo(_sample_jpeg_bytes(), "image/jpeg")
 
@@ -130,7 +135,17 @@ class FakeBackend:
         return f"https://fake-b2.example/{key}"
 
 
-def test_media_upload_enforces_max_four_photos(client, monkeypatch):
+def test_create_form_shows_required_two_photo_picker(client):
+    _register(client, "criar-fotos@exemplo.co.mz", "Fotos")
+    resp = client.get("/criar")
+    assert resp.status_code == 200
+    assert 'id="post_photos"' in resp.text
+    assert 'name="post_photos"' in resp.text
+    assert "Máximo: 2 fotos" in resp.text
+    assert "Publicar anúncio" in resp.text
+
+
+def test_media_upload_enforces_max_two_photos(client, monkeypatch):
     from app import storage
 
     fake = FakeBackend()
@@ -140,17 +155,17 @@ def test_media_upload_enforces_max_four_photos(client, monkeypatch):
     db_module.create_post("post-media-1", user["user_id"], None, _dummy_post_input())
 
     files = [
-        ("photos", (f"foto{i}.jpg", _sample_jpeg_bytes(), "image/jpeg")) for i in range(5)
+        ("photos", (f"foto{i}.jpg", _sample_jpeg_bytes(), "image/jpeg")) for i in range(3)
     ]
     resp = client.post("/posts/post-media-1/media", files=files)
     assert resp.status_code == 422
-    assert "4 fotos" in resp.text
+    assert "2 fotos" in resp.text
 
     media = db_module.list_product_media("post-media-1")
     assert media == []
 
 
-def test_media_upload_success_stores_photos_and_uses_first_as_primary(client, monkeypatch):
+def test_media_upload_success_stores_two_photos_and_uses_first_as_primary(client, monkeypatch):
     from app import storage
 
     fake = FakeBackend()
@@ -159,14 +174,17 @@ def test_media_upload_success_stores_photos_and_uses_first_as_primary(client, mo
     user = _register(client, "media2@exemplo.co.mz", "MediaUser2")
     db_module.create_post("post-media-2", user["user_id"], None, _dummy_post_input())
 
-    files = [("photos", ("foto.jpg", _sample_jpeg_bytes(), "image/jpeg"))]
+    files = [
+        ("photos", ("foto1.jpg", _sample_jpeg_bytes(), "image/jpeg")),
+        ("photos", ("foto2.jpg", _sample_jpeg_bytes(), "image/jpeg")),
+    ]
     resp = client.post("/posts/post-media-2/media", files=files, follow_redirects=False)
     assert resp.status_code == 303
 
     media = db_module.list_product_media("post-media-2")
-    assert len(media) == 1
-    assert media[0]["media_type"] == "photo"
-    assert media[0]["sha256"]
+    assert len(media) == 2
+    assert all(item["media_type"] == "photo" for item in media)
+    assert all(item["sha256"] for item in media)
 
     post = db_module.get_post("post-media-2")
     assert post["image_url"] == media[0]["url"]
