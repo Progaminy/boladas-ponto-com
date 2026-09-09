@@ -19,6 +19,14 @@ from app.config import (
     gmi_configured,
     vertex_configured,
 )
+from app.database_backend import database_backend_name, install_database_backend
+
+# Must run before importing app.db: the legacy data-access layer talks to the
+# sqlite3 DB-API directly. With DATABASE_URL configured this transparently
+# switches those calls to PostgreSQL/Supabase while keeping SQLite for tests
+# and local development.
+install_database_backend()
+
 from app.db import init_db
 from app.diagnostics import run_all_checks
 from app.templating import templates
@@ -79,6 +87,7 @@ def health() -> dict:
     return {
         "app": APP_NAME,
         "version": APP_VERSION,
+        "database_backend": database_backend_name(),
         "b2_configured": b2_configured(),
         "vertex_configured": vertex_configured(),
         "gmi_configured": gmi_configured(),
