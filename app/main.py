@@ -5,6 +5,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from app.database_url_override import apply_pooler_host_override
+
+# Supabase's shared pooler has multiple regional shards. Render keeps the
+# complete DATABASE_URL secret, while SUPABASE_POOLER_HOST can correct only
+# the hostname without exposing or rewriting the database credentials.
+apply_pooler_host_override()
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
