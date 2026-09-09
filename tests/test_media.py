@@ -150,7 +150,7 @@ def test_media_upload_enforces_max_four_photos(client, monkeypatch):
     assert media == []
 
 
-def test_media_upload_success_stores_photos(client, monkeypatch):
+def test_media_upload_success_stores_photos_and_uses_first_as_primary(client, monkeypatch):
     from app import storage
 
     fake = FakeBackend()
@@ -167,6 +167,10 @@ def test_media_upload_success_stores_photos(client, monkeypatch):
     assert len(media) == 1
     assert media[0]["media_type"] == "photo"
     assert media[0]["sha256"]
+
+    post = db_module.get_post("post-media-2")
+    assert post["image_url"] == media[0]["url"]
+    assert post["image_url"].startswith("https://fake-b2.example/posts/post-media-2/media/photo-")
 
 
 def test_media_upload_rejects_when_not_owner(client, monkeypatch):
