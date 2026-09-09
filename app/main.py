@@ -63,6 +63,19 @@ async def lifespan(app: FastAPI):
     # CREATE/ALTER/DROP privileges merely to start the web service.
     if database_backend_name() == "sqlite":
         init_db()
+    else:
+        # Read-only smoke test at startup. It does not block the web service,
+        # but makes pooler/credential mistakes immediately visible in Render.
+        try:
+            with get_conn() as conn:
+                conn.execute("SELECT 1").fetchone()
+                conn.execute("SELECT user_id FROM users LIMIT 1").fetchone()
+            print("DATABASE_STARTUP_CHECK=ok", flush=True)
+        except Exception as exc:
+            print(
+                f"DATABASE_STARTUP_CHECK=failed {type(exc).__name__}: {str(exc)[:500]}",
+                flush=True,
+            )
     provenance.reset_verification_rate_limits()
     yield
 
@@ -111,6 +124,7 @@ def database_health():
     try:
         with get_conn() as conn:
             conn.execute("SELECT 1").fetchone()
+            conn.execute("SELECT user_id FROM users LIMIT 1").fetchone()
         return {"ok": True, "database_backend": database_backend_name()}
     except Exception as exc:
         return JSONResponse(
