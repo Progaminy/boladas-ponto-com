@@ -6,7 +6,7 @@ DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 APP_NAME = "Boladas-ponto-com"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 
 # Número da plataforma para mediação entre compradores e vendedores.
 # Não é um campo por post — é uma constante mostrada em toda a aplicação.
