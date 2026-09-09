@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#2b174d">
+  <title>Boladas.com</title>
+  <meta name="description" content="Boladas.com — encontre negócios, compare preços e publique produtos e serviços.">
+  <style>
+    :root { color-scheme: light; font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f7f5fb; color: #211734; padding: 24px; }
+    main { width: min(520px,100%); background: #fff; border: 1px solid #e8e1f2; border-radius: 22px; padding: 34px 28px; text-align: center; box-shadow: 0 16px 50px rgba(43,23,77,.10); }
+    h1 { margin: 0 0 10px; font-size: clamp(2rem,8vw,3rem); color: #2b174d; }
+    p { margin: 0 auto 22px; line-height: 1.55; color: #62566f; }
+    a { display: inline-block; padding: 13px 20px; border-radius: 12px; background: #2b174d; color: #fff; text-decoration: none; font-weight: 700; }
+    small { display: block; margin-top: 18px; color: #8b8194; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Boladas.com</h1>
+    <p>A abrir a plataforma Boladas…</p>
+    <a id="open-app" href="https://boladas-ponto-com.onrender.com/">Abrir Boladas</a>
+    <small>GitHub Pages é a entrada pública; a aplicação segura corre no backend.</small>
+  </main>
+  <script>
+    (function () {
+      const backend = 'https://boladas-ponto-com.onrender.com';
+      const projectBase = '/boladas-ponto-com';
+      let path = window.location.pathname || '/';
+      if (path.startsWith(projectBase)) path = path.slice(projectBase.length) || '/';
+      if (!path.startsWith('/')) path = '/' + path;
+      const target = backend + path + window.location.search + window.location.hash;
+      document.getElementById('open-app').href = target;
+      window.setTimeout(function () { window.location.replace(target); }, 1200);
+    }());
+  </script>
+</body>
+</html>
