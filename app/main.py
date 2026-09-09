@@ -51,7 +51,11 @@ BASE_DIR = Path(__file__).resolve().parent
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    # SQLite owns its local schema and demo seed lifecycle. PostgreSQL/Supabase
+    # is migration-managed instead: a restricted runtime role must never need
+    # CREATE/ALTER/DROP privileges merely to start the web service.
+    if database_backend_name() == "sqlite":
+        init_db()
     provenance.reset_verification_rate_limits()
     yield
 
