@@ -1,0 +1,22 @@
+name: temp two photo test
+
+on:
+  push:
+    branches:
+      - simplificar-fotos-sem-ia
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile application
+        run: python -m compileall -q app
+      - name: Run focused tests
+        run: pytest -q tests/test_media.py tests/test_post_without_image.py
