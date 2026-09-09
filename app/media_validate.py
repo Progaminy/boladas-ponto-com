@@ -1,4 +1,4 @@
-"""Validação real da média enviada pelo utilizador para um produto: até 4
+"""Validação real da média enviada pelo utilizador para um produto: até 2
 fotos e 1 vídeo de 30 segundos. Nunca confia só na extensão do ficheiro ou no
 content_type declarado pelo browser — reabre a imagem com Pillow e mede a
 duração real do vídeo com ffprobe."""
@@ -11,7 +11,7 @@ import tempfile
 
 from PIL import Image
 
-MAX_PHOTOS = 4
+MAX_PHOTOS = 2
 MAX_VIDEOS = 1
 MAX_VIDEO_SECONDS = 30
 VIDEO_DURATION_TOLERANCE_SECONDS = 1.5
