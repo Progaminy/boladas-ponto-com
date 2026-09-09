@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Criar post — Boladas-ponto-com{% endblock %}
+{% block title %}Criar anúncio — Boladas-ponto-com{% endblock %}
 {% block content %}
-<h1>Criar post</h1>
-<p class="subtitle">Descreve o que vais anunciar e o Genblaze gera a imagem, legenda, chamada para ação e hashtags — tudo guardado no Backblaze B2 com proveniência verificável.</p>
+<h1>Criar anúncio</h1>
+<p class="subtitle">Publica o produto com 1 ou 2 fotos reais. A IA pode ajudar apenas com a descrição e a legenda; o Boladas não gera imagens para o anúncio.</p>
 
 <form id="post-form">
   <div class="field">
@@ -29,10 +29,26 @@
   </div>
 
   <fieldset class="describe-box">
+    <legend>📷 Fotos do produto *</legend>
+    <p class="muted describe-hint">
+      Escolhe 1 ou 2 fotos reais da galeria ou da câmara. A primeira foto será a imagem principal do anúncio.
+    </p>
+    <div class="field">
+      <label for="post_photos">Adicionar fotos</label>
+      <input type="file" id="post_photos" name="post_photos"
+             accept="image/jpeg,image/png,image/webp" multiple required />
+      <p class="muted" style="margin:0.35rem 0 0; font-size:0.85rem;">
+        Máximo: 2 fotos, 8 MB por foto. JPG, PNG ou WebP.
+      </p>
+    </div>
+    <div id="post-photo-preview" style="display:flex; gap:0.55rem; flex-wrap:wrap;"></div>
+  </fieldset>
+
+  <fieldset class="describe-box">
     <legend>Descrição do produto</legend>
     <p class="muted describe-hint">
-      Escreve à mão, ou deixa a IA escrever por ti — a partir de uma foto real
-      do produto, ou de uma explicação rápida à tua maneira.
+      Escreve à mão, ou deixa a IA escrever por ti a partir de uma foto real
+      do produto ou de uma explicação rápida à tua maneira.
     </p>
 
     <div class="field">
@@ -43,7 +59,7 @@
     </div>
 
     <details class="describe-ai">
-      <summary>Pedir à IA para escrever</summary>
+      <summary>Pedir à IA para escrever a descrição</summary>
 
       <div class="field">
         <label for="explicacao">Explica por palavras tuas (opcional se enviares foto)</label>
@@ -52,7 +68,7 @@
       </div>
 
       <div class="field">
-        <label for="foto_descricao">Ou envia uma foto do produto</label>
+        <label for="foto_descricao">Ou envia uma foto para a IA descrever</label>
         <input type="file" id="foto_descricao" accept="image/jpeg,image/png,image/webp" />
       </div>
 
@@ -117,7 +133,7 @@
     <summary style="cursor:pointer;">Opções avançadas (legenda personalizada)</summary>
     <div class="field" style="margin-top:0.8rem;">
       <label for="theme">Tema ou ideia do post</label>
-      <input type="text" id="theme" name="theme" maxlength="200" placeholder="Deixa em branco para usar a descrição acima" />
+      <input type="text" id="theme" name="theme" maxlength="200" placeholder="Deixa em branco para usar o nome do produto" />
     </div>
     <div class="field-row">
       <div class="field">
@@ -146,13 +162,9 @@
       <label for="call_to_action">Chamada para ação</label>
       <input type="text" id="call_to_action" name="call_to_action" maxlength="120" value="Contacta-me já!" />
     </div>
-    <div class="field">
-      <label for="color_reference">Cores ou referência visual (opcional)</label>
-      <input type="text" id="color_reference" name="color_reference" maxlength="60" placeholder="Ex: laranja e preto" />
-    </div>
   </details>
 
-  <button type="submit" id="submit-btn">Gerar post</button>
+  <button type="submit" id="submit-btn">Publicar anúncio</button>
   <div id="status-banner" class="status-banner"></div>
 </form>
 

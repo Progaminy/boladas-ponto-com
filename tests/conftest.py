@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.pipeline import CaptionResult, GenerationError
+from app.pipeline import CaptionResult
 from app.storage import UploadedFile, sha256_hex
 
 
@@ -10,7 +10,8 @@ from app.storage import UploadedFile, sha256_hex
 def no_external_generation_or_storage(monkeypatch):
     """Mantém os testes HTTP determinísticos e totalmente locais.
 
-    O teste de integração real chama os módulos de pipeline/armazenamento
+    A publicação já não possui gerador de imagens: só a legenda é simulada
+    aqui. O teste de integração real chama os módulos de pipeline/armazenamento
     diretamente e só corre com ``RUN_LIVE_INTEGRATION_TESTS=1``; portanto este
     isolamento das referências importadas pelo router não o interfere.
     """
@@ -25,9 +26,6 @@ def no_external_generation_or_storage(monkeypatch):
             model="fixture-sem-rede",
         )
 
-    def no_image(*args, **kwargs):
-        raise GenerationError("Imagem desativada na suite local.")
-
     def fake_upload(key, data, content_type):
         return UploadedFile(
             key=key,
@@ -38,5 +36,4 @@ def no_external_generation_or_storage(monkeypatch):
         )
 
     monkeypatch.setattr(posts_router, "generate_caption", fake_caption)
-    monkeypatch.setattr(posts_router, "generate_image", no_image)
     monkeypatch.setattr(posts_router, "upload_and_verify", fake_upload)

@@ -1,83 +1,78 @@
 const form = document.getElementById("post-form");
 const banner = document.getElementById("status-banner");
 const submitBtn = document.getElementById("submit-btn");
+const postPhotosInput = document.getElementById("post_photos");
+const photoPreview = document.getElementById("post-photo-preview");
+
+const MAX_PRODUCT_PHOTOS = 2;
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function setBanner(status, text) {
+  if (!banner) return;
   banner.className = `status-banner visible ${status}`;
   banner.textContent = text;
 }
 
-let postPhotosInput = null;
-let photoPreview = null;
+function selectedProductPhotos() {
+  return postPhotosInput ? Array.from(postPhotosInput.files || []) : [];
+}
 
-function installPostPhotoPicker() {
-  if (!form || !submitBtn || document.getElementById("post_photos")) return;
+function validateSelectedPhotos(photos) {
+  if (photos.length < 1) return "Adiciona pelo menos 1 foto do produto.";
+  if (photos.length > MAX_PRODUCT_PHOTOS) return "Escolhe no máximo 2 fotos por produto.";
 
-  const box = document.createElement("fieldset");
-  box.className = "describe-box";
-  box.innerHTML = `
-    <legend>Fotos do anúncio</legend>
-    <p class="muted describe-hint">
-      Podes publicar com fotos reais do produto. Escolhe até 4 imagens da galeria
-      ou da câmara. A primeira foto será usada como imagem principal do anúncio.
-    </p>
-    <div class="field">
-      <label for="post_photos">Adicionar fotos</label>
-      <input type="file" id="post_photos"
-             accept="image/jpeg,image/png,image/webp" multiple />
-      <p class="muted" style="margin:0.35rem 0 0; font-size:0.85rem;">
-        Máximo: 4 fotos, 8 MB por foto. JPG, PNG ou WebP.
-      </p>
-    </div>
-    <div id="post-photo-preview" style="display:flex; gap:0.55rem; flex-wrap:wrap;"></div>
-  `;
+  for (const photo of photos) {
+    if (!ALLOWED_PHOTO_TYPES.has(photo.type)) {
+      return "Usa apenas fotos JPG, PNG ou WebP.";
+    }
+    if (photo.size > MAX_PHOTO_BYTES) {
+      return `A foto ${photo.name} ultrapassa o limite de 8 MB.`;
+    }
+  }
+  return null;
+}
 
-  const advanced = document.getElementById("advanced-options");
-  if (advanced) {
-    advanced.insertAdjacentElement("beforebegin", box);
-  } else {
-    submitBtn.insertAdjacentElement("beforebegin", box);
+function renderPhotoPreview() {
+  if (!postPhotosInput || !photoPreview) return;
+  const photos = selectedProductPhotos();
+  photoPreview.innerHTML = "";
+
+  const error = validateSelectedPhotos(photos);
+  if (error && photos.length) {
+    setBanner("failed", error);
+    if (photos.length > MAX_PRODUCT_PHOTOS) postPhotosInput.value = "";
+    return;
   }
 
-  postPhotosInput = document.getElementById("post_photos");
-  photoPreview = document.getElementById("post-photo-preview");
+  photos.forEach((photo, index) => {
+    const wrapper = document.createElement("div");
+    wrapper.style.width = "96px";
+    wrapper.style.textAlign = "center";
 
-  postPhotosInput.addEventListener("change", () => {
-    const photos = Array.from(postPhotosInput.files || []);
-    photoPreview.innerHTML = "";
+    const img = document.createElement("img");
+    const objectUrl = URL.createObjectURL(photo);
+    img.src = objectUrl;
+    img.alt = `Pré-visualização da foto ${index + 1}`;
+    img.style.width = "96px";
+    img.style.height = "96px";
+    img.style.objectFit = "cover";
+    img.style.borderRadius = "10px";
+    img.style.border = index === 0 ? "2px solid #7C3AED" : "1px solid #374151";
+    img.addEventListener("load", () => URL.revokeObjectURL(objectUrl), { once: true });
 
-    if (photos.length > 4) {
-      setBanner("failed", "Escolhe no máximo 4 fotos por anúncio.");
-      postPhotosInput.value = "";
-      return;
-    }
+    const label = document.createElement("small");
+    label.textContent = index === 0 ? "Foto principal" : "Foto 2";
+    label.style.display = "block";
+    label.style.marginTop = "0.2rem";
 
-    photos.forEach((photo, index) => {
-      const wrapper = document.createElement("div");
-      wrapper.style.width = "82px";
-      wrapper.style.textAlign = "center";
-
-      const img = document.createElement("img");
-      img.src = URL.createObjectURL(photo);
-      img.alt = `Pré-visualização da foto ${index + 1}`;
-      img.style.width = "82px";
-      img.style.height = "82px";
-      img.style.objectFit = "cover";
-      img.style.borderRadius = "10px";
-      img.style.border = index === 0 ? "2px solid #7C3AED" : "1px solid #374151";
-      img.addEventListener("load", () => URL.revokeObjectURL(img.src), { once: true });
-
-      const label = document.createElement("small");
-      label.textContent = index === 0 ? "Principal" : `Foto ${index + 1}`;
-      label.style.display = "block";
-      label.style.marginTop = "0.2rem";
-
-      wrapper.appendChild(img);
-      wrapper.appendChild(label);
-      photoPreview.appendChild(wrapper);
-    });
+    wrapper.appendChild(img);
+    wrapper.appendChild(label);
+    photoPreview.appendChild(wrapper);
   });
 }
+
+if (postPhotosInput) postPhotosInput.addEventListener("change", renderPhotoPreview);
 
 async function uploadPostPhotos(postId, photos) {
   const data = new FormData();
@@ -85,68 +80,57 @@ async function uploadPostPhotos(postId, photos) {
   return fetch(`/posts/${postId}/media`, { method: "POST", body: data });
 }
 
-installPostPhotoPicker();
-
 if (form) {
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
 
-    const photos = postPhotosInput ? Array.from(postPhotosInput.files || []) : [];
-    if (photos.length > 4) {
-      setBanner("failed", "Escolhe no máximo 4 fotos por anúncio.");
+    const photos = selectedProductPhotos();
+    const photoError = validateSelectedPhotos(photos);
+    if (photoError) {
+      setBanner("failed", photoError);
       return;
     }
 
     submitBtn.disabled = true;
     setBanner(
       "generating",
-      photos.length
-        ? `A criar o anúncio. Depois vou enviar ${photos.length} foto${photos.length === 1 ? "" : "s"}...`
-        : "A gerar imagem, legenda e hashtags com o Genblaze/GMICloud... isto pode demorar até 1-2 minutos."
+      `A preparar o anúncio e a guardar ${photos.length} foto${photos.length === 1 ? "" : "s"}...`
     );
 
     const formData = new FormData(form);
+    // As fotos são enviadas para a rota de media depois de o post receber um ID.
+    // Evita mandar os mesmos ficheiros duas vezes para /posts.
+    formData.delete("post_photos");
+
     try {
       const resp = await fetch("/posts", { method: "POST", body: formData });
       const data = await resp.json();
 
       if (resp.ok && data.status === "completed") {
-        if (photos.length) {
-          setBanner(
-            "generating",
-            `Anúncio criado. A guardar ${photos.length} foto${photos.length === 1 ? "" : "s"} no Backblaze B2...`
-          );
-          const mediaResp = await uploadPostPhotos(data.post_id, photos);
-          if (!mediaResp.ok) {
-            setBanner(
-              "failed",
-              "O anúncio foi criado, mas não consegui guardar as fotos. Vou abrir a página para tentares novamente."
-            );
-            window.setTimeout(() => {
-              window.location.href = `/posts/${data.post_id}/media`;
-            }, 900);
-            return;
-          }
+        setBanner(
+          "generating",
+          `Anúncio criado. A guardar ${photos.length} foto${photos.length === 1 ? "" : "s"}...`
+        );
 
+        const mediaResp = await uploadPostPhotos(data.post_id, photos);
+        if (!mediaResp.ok) {
           setBanner(
-            "completed",
-            `${photos.length} foto${photos.length === 1 ? "" : "s"} guardada${photos.length === 1 ? "" : "s"}. Anúncio publicado com sucesso.`
+            "failed",
+            "O anúncio foi criado, mas não consegui guardar as fotos. Vou abrir a página para tentares novamente."
           );
           window.setTimeout(() => {
-            window.location.href = `/posts/${data.post_id}`;
-          }, 500);
+            window.location.href = `/posts/${data.post_id}/media`;
+          }, 900);
           return;
         }
 
-        // Um post pode concluir-se sem imagem gerada. Dizê-lo aqui evita que
-        // a pessoa descubra a ausência só na página seguinte.
         setBanner(
           "completed",
-          data.image_skipped_reason
-            ? "Anúncio publicado e guardado no Backblaze B2. A imagem fica a aguardar disponibilidade da IA — o resto do anúncio está completo. A redirecionar..."
-            : "Post gerado e armazenado no Backblaze B2 com sucesso. A redirecionar..."
+          `Anúncio publicado com ${photos.length} foto${photos.length === 1 ? "" : "s"}.`
         );
-        window.location.href = `/perfil?tab=produtos&created=${data.post_id}#produtos`;
+        window.setTimeout(() => {
+          window.location.href = `/posts/${data.post_id}`;
+        }, 500);
       } else {
         setBanner("failed", `Falhou: ${data.error || "erro desconhecido"}`);
         submitBtn.disabled = false;
@@ -159,7 +143,7 @@ if (form) {
 }
 
 // --- descrição do produto: escrita à mão, ou gerada pela IA a partir de uma
-// foto real ou de uma explicação informal ---
+// foto real ou de uma explicação informal. Isto gera somente TEXTO. ---
 const describeBtn = document.getElementById("describe-btn");
 const describeStatus = document.getElementById("describe-status");
 const descriptionField = document.getElementById("description");
@@ -185,7 +169,7 @@ if (describeBtn) {
     describeBtn.disabled = true;
     describeStatus.className = "describe-status working";
     describeStatus.textContent = foto
-      ? "A olhar para a foto..."
+      ? "A analisar a foto para escrever a descrição..."
       : "A escrever a descrição...";
 
     const dados = new FormData();

@@ -1,11 +1,9 @@
-import io
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from PIL import Image
 
 from app import db
 from app.auth import get_current_user, login_redirect, safe_next_url
@@ -13,18 +11,15 @@ from app.categories import get_category, list_categories
 from app.category_classify import suggest_category
 from app.config import MAX_POSTS_PER_USER_PER_DAY
 from app.describe import DescriptionError, describe_from_image, describe_from_text
-from app.image_compose import add_business_overlay
 from app.media_validate import MediaValidationError, validate_photo
 from app.models import ListingStatus, PostInput, PostStatus, PublisherType
 from app.moderation import check_text_blocklist, check_text_with_ai
-from app.pipeline import GenerationError, build_fallback_caption, generate_caption, generate_image
+from app.pipeline import build_fallback_caption, generate_caption
 from app.provenance import build_caption_txt, build_provenance
 from app.storage import StorageError, post_key, upload_and_verify
 from app.templating import templates
 
 router = APIRouter()
-
-THUMBNAIL_SIZE = 320
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -81,7 +76,7 @@ async def suggest_description_endpoint(
 ):
     """Gera a descrição do produto a partir de uma fotografia real ou de uma
     explicação escrita à pressa. Quem preferir escreve à mão e não passa por
-    aqui."""
+    aqui. Esta rota gera apenas texto; não cria imagens para o anúncio."""
     if get_current_user(request) is None:
         return JSONResponse({"error": "Sessão expirada."}, status_code=401)
 
@@ -236,11 +231,15 @@ def create_post(
 
 
 def _run_generation(post_id: str, post_input: PostInput) -> dict:
+    """Gera somente texto do anúncio e guarda a proveniência.
+
+    A geração de imagens foi retirada. As imagens exibidas no anúncio vêm
+    exclusivamente das fotos reais enviadas pelo vendedor pela rota de media.
+    """
     category = get_category(post_input.category)
 
     db.update_status(post_id, PostStatus.GENERATING)
 
-    caption_result = None
     caption_skipped_reason = None
     try:
         caption_result = generate_caption(post_input, category)
@@ -248,38 +247,12 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
         caption_skipped_reason = str(exc)
         caption_result = build_fallback_caption(post_input, category)
 
-    image_result = None
-    image_skipped_reason = None
-    try:
-        image_result = generate_image(post_input, category)
-    except Exception as exc:
-        image_skipped_reason = str(exc)
+    image_skipped_reason = (
+        "Geração de imagem desativada: o Boladas usa apenas fotos reais enviadas pelo vendedor."
+    )
 
     db.update_status(post_id, PostStatus.UPLOADING)
     try:
-        image_file = None
-        thumbnail_key = None
-        if image_result is not None:
-            final_image_bytes = add_business_overlay(
-                image_result.bytes_,
-                category=category,
-                business_name=post_input.brand_name or post_input.business,
-                price_mt=post_input.price_mt,
-                call_to_action=caption_result.call_to_action,
-                currency=getattr(post_input, "currency", "MZN") or "MZN",
-            )
-            image_file = upload_and_verify(
-                post_key(post_id, "image.png"), final_image_bytes, "image/png"
-            )
-            try:
-                thumb_bytes = _make_thumbnail(final_image_bytes)
-                thumb_file = upload_and_verify(
-                    post_key(post_id, "thumbnail.webp"), thumb_bytes, "image/webp"
-                )
-                thumbnail_key = thumb_file.key
-            except Exception:
-                thumbnail_key = None  # miniatura é best-effort; não bloqueia o post
-
         caption_txt = build_caption_txt(caption_result)
         caption_file = upload_and_verify(
             post_key(post_id, "caption.txt"), caption_txt.encode("utf-8"), "text/plain"
@@ -289,9 +262,9 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
             post_id=post_id,
             status=PostStatus.COMPLETED.value,
             post_input=post_input,
-            image_result=image_result,
+            image_result=None,
             caption_result=caption_result,
-            image_file=image_file,
+            image_file=None,
             caption_file=caption_file,
             image_skipped_reason=image_skipped_reason,
             caption_skipped_reason=caption_skipped_reason,
@@ -314,11 +287,11 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
         caption=caption_result.caption,
         call_to_action_generated=caption_result.call_to_action,
         hashtags=caption_result.hashtags,
-        image_key=image_file.key if image_file else None,
+        image_key=None,
         caption_key=caption_file.key,
         provenance_key=provenance_file.key,
-        thumbnail_key=thumbnail_key,
-        image_url=image_file.url if image_file else None,
+        thumbnail_key=None,
+        image_url=None,
         image_skipped_reason=image_skipped_reason,
     )
     db.update_status(post_id, PostStatus.COMPLETED)
@@ -328,14 +301,6 @@ def _run_generation(post_id: str, post_input: PostInput) -> dict:
         "status": PostStatus.COMPLETED.value,
         "image_skipped_reason": image_skipped_reason,
     }
-
-
-def _make_thumbnail(png_bytes: bytes) -> bytes:
-    img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
-    img = img.resize((THUMBNAIL_SIZE, THUMBNAIL_SIZE), Image.LANCZOS)
-    out = io.BytesIO()
-    img.save(out, format="WEBP", quality=80)
-    return out.getvalue()
 
 
 @router.get("/posts/{post_id}", response_class=HTMLResponse)

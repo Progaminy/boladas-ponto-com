@@ -28,18 +28,9 @@ def _fake_upload(key, data, content_type):
     )
 
 
-def _no_image(*args, **kwargs):
-    from app.pipeline import GenerationError
-
-    raise GenerationError("imagem desativada no teste")
-
-
 @pytest.fixture
 def auth_client(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.db")
-    from app.routers import posts as posts_router
-
-    monkeypatch.setattr(posts_router, "generate_image", _no_image)
 
     uid = uuid.uuid4().hex[:8]
     user_id = f"test_user_adv_{uid}"

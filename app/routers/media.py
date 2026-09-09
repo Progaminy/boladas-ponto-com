@@ -13,7 +13,7 @@ from app.media_validate import (
     validate_video,
 )
 from app.moderation import check_media_with_ai
-from app.storage import StorageError, get_backend, post_key, upload_and_verify
+from app.storage import StorageError, post_key, upload_and_verify
 from app.templating import templates
 
 router = APIRouter()
@@ -29,9 +29,7 @@ _EXT_BY_CONTENT_TYPE = {
 
 
 def _set_display_image(post_id: str, url: str | None) -> None:
-    """Define a imagem usada nos cartões/feed sem alterar a proveniência da
-    eventual imagem gerada por IA. A foto real do vendedor tem prioridade
-    visual quando existe."""
+    """Define a foto real usada como imagem principal nos cartões e no feed."""
     with db.get_conn() as conn:
         conn.execute(
             "UPDATE posts SET image_url = ? WHERE post_id = ?",
@@ -39,17 +37,10 @@ def _set_display_image(post_id: str, url: str | None) -> None:
         )
 
 
-def _fallback_display_image(post, remaining_media) -> str | None:
+def _fallback_display_image(remaining_media) -> str | None:
     for item in remaining_media:
         if item["media_type"] == "photo":
             return item["url"]
-
-    image_key = post["image_key"] if "image_key" in post.keys() else None
-    if image_key:
-        try:
-            return get_backend().get_durable_url(image_key)
-        except Exception:
-            return None
     return None
 
 
@@ -149,9 +140,8 @@ async def media_upload(
                 first_new_photo_url = uploaded.url
             order += 1
 
-        # A primeira fotografia real do produto passa a ser a imagem principal
-        # do anúncio. Isto faz a foto aparecer também no feed e nos cartões,
-        # não apenas dentro da galeria da página do produto.
+        # A primeira fotografia real do produto é a imagem principal do
+        # anúncio. O Boladas não cria imagem artificial para substituir o produto.
         if photo_count == 0 and first_new_photo_url:
             _set_display_image(post_id, first_new_photo_url)
 
@@ -196,6 +186,6 @@ def media_delete(request: Request, post_id: str, media_id: str):
 
     if was_display_image:
         remaining = db.list_product_media(post_id)
-        _set_display_image(post_id, _fallback_display_image(post, remaining))
+        _set_display_image(post_id, _fallback_display_image(remaining))
 
     return RedirectResponse(f"/posts/{post_id}/media", status_code=303)
