@@ -7,6 +7,8 @@ services:
     branch: main
     healthCheckPath: /health
     envVars:
+      - key: DATABASE_URL
+        sync: false
       - key: B2_KEY_ID
         sync: false
       - key: B2_APP_KEY
