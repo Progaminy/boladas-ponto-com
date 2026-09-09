@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 from app import db
 from app.auth import hash_password
 from app.main import app
-from app.models import PostInput, PublisherType
 from app.pipeline import GenerationError
 from app.storage import UploadedFile
 
@@ -26,16 +25,9 @@ def _failing_generate_caption(*args, **kwargs):
     )
 
 
-def _failing_generate_image(*args, **kwargs):
-    raise GenerationError("quota de imagem indisponível")
-
-
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.db")
-    from app.routers import posts as posts_router
-
-    monkeypatch.setattr(posts_router, "generate_image", _failing_generate_image)
     with TestClient(app) as test_client:
         yield test_client
 
@@ -54,7 +46,8 @@ def test_quota_429_fallback_completes_post_and_stores_files_in_b2(
 
     client.post("/entrar", data={"email": email, "password": "senha12345"})
 
-    # Submeter post quando a IA falhar por quota 429
+    # Submeter post quando a IA de texto falhar por quota 429.
+    # Não há gerador de imagem no fluxo de publicação.
     resp = client.post(
         "/posts",
         data={
@@ -76,6 +69,7 @@ def test_quota_429_fallback_completes_post_and_stores_files_in_b2(
     assert post["caption"] == "Excelente estado, bateria duradoura."
     assert post["caption_key"] is not None
     assert post["provenance_key"] is not None
+    assert post["image_key"] is None
 
 
 def test_public_can_browse_the_feed_without_an_account(client):
