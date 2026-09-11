@@ -1,5 +1,4 @@
 from enum import Enum
-
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -12,16 +11,14 @@ class PostStatus(str, Enum):
 
 
 class ListingStatus(str, Enum):
-    """Disponibilidade comercial de um anúncio já processado."""
-
     ACTIVE = "active"
     PAUSED = "paused"
     SOLD = "sold"
 
 
 class PublisherType(str, Enum):
-    BUSINESS = "business"  # empresa/marca com nome próprio
-    INDIVIDUAL = "individual"  # utilizador simples, sem marca
+    BUSINESS = "business"
+    INDIVIDUAL = "individual"
 
 
 class PostInput(BaseModel):
@@ -41,8 +38,6 @@ class PostInput(BaseModel):
     contact: str = Field(..., min_length=4, max_length=60)
     phone_prefix: str | None = Field(default=None, max_length=10)
     color_reference: str | None = Field(default=None, max_length=60)
-    # Descrição do produto: escrita à mão, gerada pela IA a partir de uma
-    # explicação, ou gerada a partir de uma fotografia real.
     description: str | None = Field(default=None, max_length=600)
     description_source: str | None = Field(default=None, max_length=20)
 

@@ -1,89 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Boladas-ponto-com — Do zero ao infinito.{% endblock %}
 {% block content %}
-
 <section class="hero">
   <h1 class="hero-title">Boladas-ponto-com</h1>
   <p class="hero-slogan">Do zero ao infinito.</p>
-  <p class="hero-subtitle">
-    Descreve o que vendes — a Boladas transforma o briefing num anúncio,
-    orquestra a IA com Genblaze, guarda no Backblaze B2 apenas os artefactos
-    realmente produzidos e conserva uma origem verificável para cada post.
-  </p>
+  <p class="hero-subtitle">Um marketplace para anunciar produtos e serviços com informação fornecida pelo próprio vendedor, fotos reais, preços, localização e contacto.</p>
   <div class="hero-actions">
     <a href="/explorar" class="btn-primary">Ver anúncios</a>
     <a href="/registar" class="btn-secondary">Criar conta grátis</a>
     <a href="/registar/empresa" class="btn-secondary">Registar a minha empresa</a>
     <a href="/entrar" class="btn-secondary">Já tenho conta</a>
   </div>
-  <p class="muted hero-nota">Podes ver os anúncios e comparar preços sem criar conta.</p>
 </section>
-
 <section class="landing-section">
   <h2>Como funciona</h2>
   <div class="step-grid">
-    <div class="step">
-      <span class="step-num">1</span>
-      <p><strong>Descreve o produto</strong><br />o que vendes, categoria, preço em MT, localização e contacto.</p>
-    </div>
-    <div class="step">
-      <span class="step-num">2</span>
-      <p><strong>O Genblaze cria o conteúdo</strong><br />legenda, CTA e hashtags; quando o provedor permite, também uma imagem 1080×1080.</p>
-    </div>
-    <div class="step">
-      <span class="step-num">3</span>
-      <p><strong>Guardado e comprovado no B2</strong><br />cada ficheiro volta a ser descarregado e verificado por SHA-256.</p>
-    </div>
-    <div class="step">
-      <span class="step-num">4</span>
-      <p><strong>Publica e negoceia</strong><br />partilha o post, recebe mensagens, negoceia com o comprador.</p>
-    </div>
+    <div class="step"><span class="step-num">1</span><p><strong>Adiciona o produto</strong><br />nome, descrição, preço, localização e contacto.</p></div>
+    <div class="step"><span class="step-num">2</span><p><strong>Escolhe fotos reais</strong><br />junta 1 ou 2 fotos do próprio produto.</p></div>
+    <div class="step"><span class="step-num">3</span><p><strong>Publica no feed</strong><br />o anúncio fica disponível para quem procura e compara preços.</p></div>
+    <div class="step"><span class="step-num">4</span><p><strong>Conversa e negoceia</strong><br />comprador e vendedor tratam diretamente da transação.</p></div>
   </div>
 </section>
-
-<section class="landing-section">
-  <div class="card" style="border-left-color:var(--accent);">
-    <h2 style="margin-top:0;">O princípio "Nunca fingir"</h2>
-    <p>A Boladas nunca inventa uma imagem, uma execução de IA nem um ficheiro.
-    Se a quota de imagem estiver indisponível, o anúncio diz isso claramente e
-    publica apenas o conteúdo que existe. Tudo o que o manifesto declara foi
-    enviado ao Backblaze B2, descarregado de volta e comparado por SHA-256.</p>
-    <p><a href="/estado">Ver o diagnóstico real dos serviços</a></p>
-  </div>
-</section>
-
-<section class="landing-section">
-  <h2>Para quem vende ocasionalmente ou tem negócio próprio</h2>
-  <p class="muted">
-    Publica como tu mesmo, numa venda pessoal e eventual, com um formulário
-    simples — ou regista quantas empresas quiseres, cada uma com o seu
-    perfil, categoria, fotos e cor. Junta até 4 fotos e 1 vídeo de 30s reais
-    do produto, além da imagem gerada por IA.
-  </p>
-  {% if categories %}
-  <div class="swatch-grid">
-    {% for c in categories %}
-    <span class="swatch" style="background:{{ c.accent_dark }}; color:#fff;">{{ c.label }}</span>
-    {% endfor %}
-  </div>
-  <p class="muted" style="font-size:0.85rem;">...e mais de 20 outras categorias, ou escreve a tua própria.</p>
-  {% endif %}
-</section>
-
-<section class="landing-section">
-  <h2>Confiança entre comprador e vendedor</h2>
-  <p class="muted">
-    Mensagens internas sempre ligadas ao produto em causa, um checklist de
-    transação (pendente → vendido → recebido) com apoio opcional da equipa
-    Boladas para mediar, e um sistema de reportar conteúdo com revisão
-    humana. A Boladas nunca processa nem retém o teu dinheiro — o pagamento
-    é sempre direto entre as partes.
-  </p>
-</section>
-
-<section class="landing-section" style="text-align:center;">
-  <a href="/registar" class="btn-primary">Começar agora</a>
-  <p class="muted" style="margin-top:1rem;">Contacto da plataforma para mediação: <strong>{{ platform_contact }}</strong></p>
-</section>
-
+<section class="landing-section"><div class="card"><h2>Informação real do vendedor</h2><p>O Boladas publica o que o vendedor informa e as fotos que ele próprio envia. Conteúdo proibido pode ser bloqueado por regras locais, reportado por utilizadores e revisto pela equipa da plataforma.</p><p><a href="/estado">Ver o estado dos serviços</a></p></div></section>
+<section class="landing-section"><h2>Para vendas ocasionais e negócios</h2><p class="muted">Publica como particular ou regista uma ou mais empresas. Cada anúncio pode ter até 2 fotos reais e, quando necessário, 1 vídeo curto.</p></section>
+<section class="landing-section"><h2>Confiança entre comprador e vendedor</h2><p class="muted">Mensagens internas, estados de transação, comentários, denúncias e apoio humano da equipa Boladas. A plataforma não processa nem retém o teu dinheiro.</p></section>
 {% endblock %}

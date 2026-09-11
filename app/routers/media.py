@@ -5,36 +5,21 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app import db
 from app.auth import get_current_user
-from app.media_validate import (
-    MAX_PHOTOS,
-    MAX_VIDEOS,
-    MediaValidationError,
-    validate_photo,
-    validate_video,
-)
-from app.moderation import check_media_with_ai
+from app.media_validate import MAX_PHOTOS, MAX_VIDEOS, MediaValidationError, validate_photo, validate_video
 from app.storage import StorageError, post_key, upload_and_verify
 from app.templating import templates
 
 router = APIRouter()
 
 _EXT_BY_CONTENT_TYPE = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "video/mp4": "mp4",
-    "video/webm": "webm",
-    "video/quicktime": "mov",
+    "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+    "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov",
 }
 
 
 def _set_display_image(post_id: str, url: str | None) -> None:
-    """Define a foto real usada como imagem principal nos cartões e no feed."""
     with db.get_conn() as conn:
-        conn.execute(
-            "UPDATE posts SET image_url = ? WHERE post_id = ?",
-            (url, post_id),
-        )
+        conn.execute("UPDATE posts SET image_url = ? WHERE post_id = ?", (url, post_id))
 
 
 def _fallback_display_image(remaining_media) -> str | None:
@@ -49,50 +34,27 @@ def media_form(request: Request, post_id: str):
     user = get_current_user(request)
     if user is None:
         return RedirectResponse("/entrar", status_code=303)
-
     post = db.get_post(post_id)
     if post is None or post["user_id"] != user["user_id"]:
         return RedirectResponse(f"/posts/{post_id}", status_code=303)
-
     media = db.list_product_media(post_id)
     photo_count = sum(1 for m in media if m["media_type"] == "photo")
     video_count = sum(1 for m in media if m["media_type"] == "video")
-    return templates.TemplateResponse(
-        request, "media_form.html",
-        {
-            "post": post, "media": media, "error": None,
-            "photos_left": max(0, MAX_PHOTOS - photo_count),
-            "videos_left": max(0, MAX_VIDEOS - video_count),
-        },
-    )
+    return templates.TemplateResponse(request, "media_form.html", {"post": post, "media": media, "error": None, "photos_left": max(0, MAX_PHOTOS-photo_count), "videos_left": max(0, MAX_VIDEOS-video_count)})
 
 
 def _media_form_error(request: Request, post, status_code: int, error: str) -> HTMLResponse:
     media = db.list_product_media(post["post_id"])
     photo_count = sum(1 for m in media if m["media_type"] == "photo")
     video_count = sum(1 for m in media if m["media_type"] == "video")
-    return templates.TemplateResponse(
-        request, "media_form.html",
-        {
-            "post": post, "media": media, "error": error,
-            "photos_left": max(0, MAX_PHOTOS - photo_count),
-            "videos_left": max(0, MAX_VIDEOS - video_count),
-        },
-        status_code=status_code,
-    )
+    return templates.TemplateResponse(request, "media_form.html", {"post": post, "media": media, "error": error, "photos_left": max(0, MAX_PHOTOS-photo_count), "videos_left": max(0, MAX_VIDEOS-video_count)}, status_code=status_code)
 
 
 @router.post("/posts/{post_id}/media")
-async def media_upload(
-    request: Request,
-    post_id: str,
-    photos: list[UploadFile] = File(default=[]),
-    video: UploadFile | None = File(default=None),
-):
+async def media_upload(request: Request, post_id: str, photos: list[UploadFile] = File(default=[]), video: UploadFile | None = File(default=None)):
     user = get_current_user(request)
     if user is None:
         return RedirectResponse("/entrar", status_code=303)
-
     post = db.get_post(post_id)
     if post is None or post["user_id"] != user["user_id"]:
         return RedirectResponse(f"/posts/{post_id}", status_code=303)
@@ -100,18 +62,13 @@ async def media_upload(
     existing = db.list_product_media(post_id)
     photo_count = sum(1 for m in existing if m["media_type"] == "photo")
     video_count = sum(1 for m in existing if m["media_type"] == "video")
-
     photos = [p for p in photos if p.filename]
     has_video = video is not None and bool(video.filename)
 
     if photo_count + len(photos) > MAX_PHOTOS:
-        return _media_form_error(
-            request, post, 422, f"Máximo de {MAX_PHOTOS} fotos por produto (já tens {photo_count})."
-        )
+        return _media_form_error(request, post, 422, f"Máximo de {MAX_PHOTOS} fotos por produto (já tens {photo_count}).")
     if has_video and video_count + 1 > MAX_VIDEOS:
-        return _media_form_error(
-            request, post, 422, f"Máximo de {MAX_VIDEOS} vídeo por produto (já tens {video_count})."
-        )
+        return _media_form_error(request, post, 422, f"Máximo de {MAX_VIDEOS} vídeo por produto (já tens {video_count}).")
 
     order = photo_count
     first_new_photo_url = None
@@ -119,49 +76,24 @@ async def media_upload(
         for photo in photos:
             data = await photo.read()
             validate_photo(data, photo.content_type)
-            # Moderação visual real (Gemini). Devolve None quando não foi
-            # possível verificar — nesse caso não bloqueia, e o conteúdo fica
-            # coberto pelo mecanismo de reporte com revisão humana.
-            moderation = check_media_with_ai(data, photo.content_type)
-            if moderation and moderation["flagged"]:
-                return _media_form_error(
-                    request, post, 422,
-                    "Foto não permitida pela moderação: "
-                    + (moderation["reason"] or "possível violação"),
-                )
             ext = _EXT_BY_CONTENT_TYPE[photo.content_type]
             key = post_key(post_id, f"media/photo-{uuid.uuid4().hex[:8]}.{ext}")
             uploaded = upload_and_verify(key, data, photo.content_type)
-            db.add_product_media(
-                uuid.uuid4().hex, post_id, "photo", uploaded.key, uploaded.content_type,
-                uploaded.size, uploaded.sha256, uploaded.url, order,
-            )
+            db.add_product_media(uuid.uuid4().hex, post_id, "photo", uploaded.key, uploaded.content_type, uploaded.size, uploaded.sha256, uploaded.url, order)
             if first_new_photo_url is None:
                 first_new_photo_url = uploaded.url
             order += 1
 
-        # A primeira fotografia real do produto é a imagem principal do
-        # anúncio. O Boladas não cria imagem artificial para substituir o produto.
         if photo_count == 0 and first_new_photo_url:
             _set_display_image(post_id, first_new_photo_url)
 
         if has_video:
             data = await video.read()
             validate_video(data, video.content_type)
-            moderation = check_media_with_ai(data, video.content_type)
-            if moderation and moderation["flagged"]:
-                return _media_form_error(
-                    request, post, 422,
-                    "Vídeo não permitido pela moderação: "
-                    + (moderation["reason"] or "possível violação"),
-                )
             ext = _EXT_BY_CONTENT_TYPE[video.content_type]
             key = post_key(post_id, f"media/video-{uuid.uuid4().hex[:8]}.{ext}")
             uploaded = upload_and_verify(key, data, video.content_type)
-            db.add_product_media(
-                uuid.uuid4().hex, post_id, "video", uploaded.key, uploaded.content_type,
-                uploaded.size, uploaded.sha256, uploaded.url, 0,
-            )
+            db.add_product_media(uuid.uuid4().hex, post_id, "video", uploaded.key, uploaded.content_type, uploaded.size, uploaded.sha256, uploaded.url, 0)
     except MediaValidationError as exc:
         return _media_form_error(request, post, 422, str(exc))
     except StorageError as exc:
@@ -175,17 +107,12 @@ def media_delete(request: Request, post_id: str, media_id: str):
     user = get_current_user(request)
     if user is None:
         return RedirectResponse("/entrar", status_code=303)
-
     post = db.get_post(post_id)
     media = db.get_product_media(media_id)
     if post is None or media is None or post["user_id"] != user["user_id"] or media["post_id"] != post_id:
         return RedirectResponse(f"/posts/{post_id}", status_code=303)
-
     was_display_image = media["media_type"] == "photo" and media["url"] == post["image_url"]
     db.delete_product_media(media_id)
-
     if was_display_image:
-        remaining = db.list_product_media(post_id)
-        _set_display_image(post_id, _fallback_display_image(remaining))
-
+        _set_display_image(post_id, _fallback_display_image(db.list_product_media(post_id)))
     return RedirectResponse(f"/posts/{post_id}/media", status_code=303)

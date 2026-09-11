@@ -1,46 +1,9 @@
 <!doctype html>
 <html lang="pt">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Boladas-ponto-com{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/styles.css" />
-</head>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>{% block title %}Boladas-ponto-com{% endblock %}</title><link rel="stylesheet" href="/static/css/styles.css" /></head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/">Boladas-ponto-com</a>
-    <nav>
-      <a href="/empresas">🏢 Lojas & Empresas</a>
-      {% if current_user %}
-        <a href="/explorar">📱 Feed</a>
-        <a href="/comparar">⚖️ Comparar Preços & GPS</a>
-        <a href="/criar">➕ Anunciar</a>
-        <a href="/empresa">Minhas empresas</a>
-        <a href="/perfil?tab=produtos">👤 O Meu Perfil</a>
-        <a href="/mensagens">Mensagens</a>
-        <a href="/transacoes">Transações</a>
-        {% if current_user['is_admin'] %}<a href="/admin/moderacao">Moderação</a>{% endif %}
-        <span class="muted nav-user">{{ current_user['display_name'] }}</span>
-        <form method="post" action="/sair" class="nav-logout">
-          <button type="submit" class="btn-link">Sair</button>
-        </form>
-      {% else %}
-        <a href="/entrar">Entrar</a>
-        <a href="/registar">Registar</a>
-      {% endif %}
-    </nav>
-  </header>
-
-  <main class="container">
-    {% block content %}{% endblock %}
-  </main>
-
-  <footer class="footer">
-    <p>Boladas-ponto-com &mdash; Backblaze Generative Media Hackathon</p>
-    <p>Contacto da plataforma para mediação: <strong>{{ platform_contact }}</strong></p>
-    <p><a href="/termos">Termos de Uso</a> &middot; <a href="/estado">Estado do sistema</a></p>
-  </footer>
-
-  {% block scripts %}{% endblock %}
-</body>
-</html>
+<header class="topbar"><a class="brand" href="/">Boladas-ponto-com</a><nav><a href="/empresas">🏢 Lojas & Empresas</a>{% if current_user %}<a href="/explorar">📱 Feed</a><a href="/comparar">⚖️ Comparar Preços & GPS</a><a href="/criar">➕ Anunciar</a><a href="/empresa">Minhas empresas</a><a href="/perfil?tab=produtos">👤 O Meu Perfil</a><a href="/mensagens">Mensagens</a><a href="/transacoes">Transações</a>{% if current_user['is_admin'] %}<a href="/admin/moderacao">Moderação</a>{% endif %}<span class="muted nav-user">{{ current_user['display_name'] }}</span><form method="post" action="/sair" class="nav-logout"><button type="submit" class="btn-link">Sair</button></form>{% else %}<a href="/entrar">Entrar</a><a href="/registar">Registar</a>{% endif %}</nav></header>
+<main class="container">{% block content %}{% endblock %}</main>
+<footer class="footer"><p>Boladas-ponto-com &mdash; marketplace de anúncios e negócios</p><p>Contacto da plataforma para mediação: <strong>{{ platform_contact }}</strong></p><p><a href="/termos">Termos de Uso</a> &middot; <a href="/estado">Estado do sistema</a></p></footer>
+{% block scripts %}{% endblock %}
+</body></html>

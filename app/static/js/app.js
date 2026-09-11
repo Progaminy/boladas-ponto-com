@@ -13,43 +13,32 @@ function setBanner(status, text) {
   banner.className = `status-banner visible ${status}`;
   banner.textContent = text;
 }
-
 function selectedProductPhotos() {
   return postPhotosInput ? Array.from(postPhotosInput.files || []) : [];
 }
-
 function validateSelectedPhotos(photos) {
   if (photos.length < 1) return "Adiciona pelo menos 1 foto do produto.";
   if (photos.length > MAX_PRODUCT_PHOTOS) return "Escolhe no máximo 2 fotos por produto.";
-
   for (const photo of photos) {
-    if (!ALLOWED_PHOTO_TYPES.has(photo.type)) {
-      return "Usa apenas fotos JPG, PNG ou WebP.";
-    }
-    if (photo.size > MAX_PHOTO_BYTES) {
-      return `A foto ${photo.name} ultrapassa o limite de 8 MB.`;
-    }
+    if (!ALLOWED_PHOTO_TYPES.has(photo.type)) return "Usa apenas fotos JPG, PNG ou WebP.";
+    if (photo.size > MAX_PHOTO_BYTES) return `A foto ${photo.name} ultrapassa o limite de 8 MB.`;
   }
   return null;
 }
-
 function renderPhotoPreview() {
   if (!postPhotosInput || !photoPreview) return;
   const photos = selectedProductPhotos();
   photoPreview.innerHTML = "";
-
   const error = validateSelectedPhotos(photos);
   if (error && photos.length) {
     setBanner("failed", error);
     if (photos.length > MAX_PRODUCT_PHOTOS) postPhotosInput.value = "";
     return;
   }
-
   photos.forEach((photo, index) => {
     const wrapper = document.createElement("div");
     wrapper.style.width = "96px";
     wrapper.style.textAlign = "center";
-
     const img = document.createElement("img");
     const objectUrl = URL.createObjectURL(photo);
     img.src = objectUrl;
@@ -60,18 +49,14 @@ function renderPhotoPreview() {
     img.style.borderRadius = "10px";
     img.style.border = index === 0 ? "2px solid #7C3AED" : "1px solid #374151";
     img.addEventListener("load", () => URL.revokeObjectURL(objectUrl), { once: true });
-
     const label = document.createElement("small");
     label.textContent = index === 0 ? "Foto principal" : "Foto 2";
     label.style.display = "block";
-    label.style.marginTop = "0.2rem";
-
     wrapper.appendChild(img);
     wrapper.appendChild(label);
     photoPreview.appendChild(wrapper);
   });
 }
-
 if (postPhotosInput) postPhotosInput.addEventListener("change", renderPhotoPreview);
 
 async function uploadPostPhotos(postId, photos) {
@@ -83,118 +68,33 @@ async function uploadPostPhotos(postId, photos) {
 if (form) {
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
-
     const photos = selectedProductPhotos();
     const photoError = validateSelectedPhotos(photos);
-    if (photoError) {
-      setBanner("failed", photoError);
-      return;
-    }
-
+    if (photoError) { setBanner("failed", photoError); return; }
     submitBtn.disabled = true;
-    setBanner(
-      "generating",
-      `A preparar o anúncio e a guardar ${photos.length} foto${photos.length === 1 ? "" : "s"}...`
-    );
-
+    setBanner("generating", `A publicar o anúncio e a preparar ${photos.length} foto${photos.length === 1 ? "" : "s"}...`);
     const formData = new FormData(form);
-    // As fotos são enviadas para a rota de media depois de o post receber um ID.
-    // Evita mandar os mesmos ficheiros duas vezes para /posts.
     formData.delete("post_photos");
-
     try {
       const resp = await fetch("/posts", { method: "POST", body: formData });
       const data = await resp.json();
-
-      if (resp.ok && data.status === "completed") {
-        setBanner(
-          "generating",
-          `Anúncio criado. A guardar ${photos.length} foto${photos.length === 1 ? "" : "s"}...`
-        );
-
-        const mediaResp = await uploadPostPhotos(data.post_id, photos);
-        if (!mediaResp.ok) {
-          setBanner(
-            "failed",
-            "O anúncio foi criado, mas não consegui guardar as fotos. Vou abrir a página para tentares novamente."
-          );
-          window.setTimeout(() => {
-            window.location.href = `/posts/${data.post_id}/media`;
-          }, 900);
-          return;
-        }
-
-        setBanner(
-          "completed",
-          `Anúncio publicado com ${photos.length} foto${photos.length === 1 ? "" : "s"}.`
-        );
-        window.setTimeout(() => {
-          window.location.href = `/posts/${data.post_id}`;
-        }, 500);
-      } else {
+      if (!(resp.ok && data.status === "completed")) {
         setBanner("failed", `Falhou: ${data.error || "erro desconhecido"}`);
         submitBtn.disabled = false;
+        return;
       }
+      setBanner("generating", `Anúncio criado. A guardar ${photos.length} foto${photos.length === 1 ? "" : "s"}...`);
+      const mediaResp = await uploadPostPhotos(data.post_id, photos);
+      if (!mediaResp.ok) {
+        setBanner("failed", "O anúncio foi criado, mas não foi possível guardar as fotos. Verifica o armazenamento B2.");
+        submitBtn.disabled = false;
+        return;
+      }
+      setBanner("completed", `Anúncio publicado com ${photos.length} foto${photos.length === 1 ? "" : "s"}.`);
+      window.setTimeout(() => { window.location.href = `/posts/${data.post_id}`; }, 400);
     } catch (err) {
       setBanner("failed", `Erro de rede: ${err}`);
       submitBtn.disabled = false;
     }
-  });
-}
-
-// --- descrição do produto: escrita à mão, ou gerada pela IA a partir de uma
-// foto real ou de uma explicação informal. Isto gera somente TEXTO. ---
-const describeBtn = document.getElementById("describe-btn");
-const describeStatus = document.getElementById("describe-status");
-const descriptionField = document.getElementById("description");
-const descriptionSource = document.getElementById("description_source");
-
-if (describeBtn) {
-  // se a pessoa editar o texto depois de a IA o gerar, passa a contar como
-  // escrito por ela — a origem registada tem de corresponder ao que é verdade
-  descriptionField.addEventListener("input", () => {
-    if (descriptionSource.value.startsWith("ia_")) descriptionSource.value = "manual";
-  });
-
-  describeBtn.addEventListener("click", async () => {
-    const explicacao = document.getElementById("explicacao").value.trim();
-    const foto = document.getElementById("foto_descricao").files[0];
-
-    if (!explicacao && !foto) {
-      describeStatus.textContent = "Escreve uma explicação ou envia uma foto.";
-      describeStatus.className = "describe-status failed";
-      return;
-    }
-
-    describeBtn.disabled = true;
-    describeStatus.className = "describe-status working";
-    describeStatus.textContent = foto
-      ? "A analisar a foto para escrever a descrição..."
-      : "A escrever a descrição...";
-
-    const dados = new FormData();
-    if (explicacao) dados.append("explicacao", explicacao);
-    if (foto) dados.append("foto", foto);
-
-    try {
-      const resp = await fetch("/descricao/sugerir", { method: "POST", body: dados });
-      const data = await resp.json();
-      if (resp.ok) {
-        descriptionField.value = data.description;
-        descriptionSource.value = data.source;
-        describeStatus.className = "describe-status ok";
-        describeStatus.textContent =
-          data.source === "ia_foto"
-            ? "Descrição escrita a partir da foto. Podes editá-la."
-            : "Descrição escrita pela IA. Podes editá-la.";
-      } else {
-        describeStatus.className = "describe-status failed";
-        describeStatus.textContent = data.error || "Não foi possível gerar.";
-      }
-    } catch (err) {
-      describeStatus.className = "describe-status failed";
-      describeStatus.textContent = `Erro de rede: ${err}`;
-    }
-    describeBtn.disabled = false;
   });
 }
