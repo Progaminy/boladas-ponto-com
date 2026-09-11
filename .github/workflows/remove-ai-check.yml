@@ -1,0 +1,27 @@
+name: Validate no AI
+
+on:
+  push:
+    branches: [remover-ia-20260911]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Compile
+        run: python -m compileall -q app
+      - name: Reject remaining AI runtime references
+        shell: bash
+        run: |
+          if grep -RniE 'gemini|gmicloud|genblaze|intelig[eê]ncia artificial|AI_PROVIDER|VERTEX_EXPRESS|GMI_API|check_text_with_ai|check_media_with_ai|descricao/sugerir|categoria/sugerir|ai_status|routers[./]ai_edit' app README.md .env.example render.yaml requirements.txt scripts 2>/dev/null; then
+            echo 'Found AI-related references that must be removed.'
+            exit 1
+          fi
+      - name: Test
+        run: pytest -q
