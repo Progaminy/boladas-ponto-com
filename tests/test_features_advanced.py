@@ -1,31 +1,11 @@
 import uuid
+
 import pytest
-from unittest.mock import patch
 from fastapi.testclient import TestClient
+
 from app import db
-from app.main import app
 from app.auth import hash_password
-from app.pipeline import CaptionResult
-from app.storage import UploadedFile
-
-def _fake_caption(*args, **kwargs):
-    return CaptionResult(
-        caption="Texto de teste.",
-        call_to_action="Contacta-me!",
-        hashtags=["teste"],
-        provider="test-provider",
-        model="test-model",
-    )
-
-
-def _fake_upload(key, data, content_type):
-    return UploadedFile(
-        key=key,
-        content_type=content_type,
-        size=len(data),
-        sha256="1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-        url=f"https://fake-b2.example/{key}",
-    )
+from app.main import app
 
 
 @pytest.fixture
@@ -42,10 +22,19 @@ def auth_client(tmp_path, monkeypatch):
         yield test_c, user_id
 
 
-@patch("app.routers.posts.generate_caption", side_effect=_fake_caption)
-@patch("app.routers.posts.upload_and_verify", side_effect=_fake_upload)
-def test_individual_post_category_auto(mock_upload, mock_caption, auth_client):
-    c, user_id = auth_client
+def _create_manual_post(client, business: str):
+    return client.post(
+        "/posts",
+        data={
+            "business": business,
+            "publish_as": "individual",
+            "contact": "841234567",
+        },
+    )
+
+
+def test_individual_post_uses_informal_category(auth_client):
+    c, _ = auth_client
     resp = c.post(
         "/posts",
         data={
@@ -57,29 +46,19 @@ def test_individual_post_category_auto(mock_upload, mock_caption, auth_client):
     )
     assert resp.status_code == 200
     data = resp.json()
-    post_id = data["post_id"]
+    assert data["status"] == "completed"
 
-    post = db.get_post(post_id)
+    post = db.get_post(data["post_id"])
     assert post is not None
     assert post["category"] == "venda_informal"
     assert post["publisher_type"] == "individual"
 
 
-@patch("app.routers.posts.generate_caption", side_effect=_fake_caption)
-@patch("app.routers.posts.upload_and_verify", side_effect=_fake_upload)
-def test_dislike_requires_reason(mock_upload, mock_caption, auth_client):
-    c, user_id = auth_client
-    resp = c.post(
-        "/posts",
-        data={
-            "business": "Item para teste dislike",
-            "publish_as": "individual",
-            "contact": "841234567",
-        },
-    )
+def test_dislike_requires_reason(auth_client):
+    c, _ = auth_client
+    resp = _create_manual_post(c, "Item para teste dislike")
     post_id = resp.json()["post_id"]
 
-    # tentar dislike sem motivo -> 422 Error
     resp_dislike_fail = c.post(
         f"/posts/{post_id}/react",
         data={"reaction_type": "dislike", "reason": ""},
@@ -87,42 +66,31 @@ def test_dislike_requires_reason(mock_upload, mock_caption, auth_client):
     assert resp_dislike_fail.status_code == 422
     assert "obrigatório" in resp_dislike_fail.json()["error"]
 
-    # dislike com motivo -> sucesso + report automático gerado
     resp_dislike_ok = c.post(
         f"/posts/{post_id}/react",
         data={"reaction_type": "dislike", "reason": "Preço muito alto e sem fotos claras"},
     )
     assert resp_dislike_ok.status_code == 200
-    res_data = resp_dislike_ok.json()
-    assert res_data["dislikes"] == 1
+    assert resp_dislike_ok.json()["dislikes"] == 1
 
-    # Verificar que foi gerado um alerta de moderação para a equipa da plataforma
     reports = db.list_open_reports()
-    dislike_reports = [r for r in reports if r["source"] == "dislike_feedback" and r["post_id"] == post_id]
+    dislike_reports = [
+        r for r in reports
+        if r["source"] == "dislike_feedback" and r["post_id"] == post_id
+    ]
     assert len(dislike_reports) == 1
     assert "Preço muito alto" in dislike_reports[0]["reason"]
 
 
-@patch("app.routers.posts.generate_caption", side_effect=_fake_caption)
-@patch("app.routers.posts.upload_and_verify", side_effect=_fake_upload)
-def test_comments_and_likes(mock_upload, mock_caption, auth_client):
-    c, user_id = auth_client
-    resp = c.post(
-        "/posts",
-        data={
-            "business": "Item para comentarios",
-            "publish_as": "individual",
-            "contact": "841234567",
-        },
-    )
+def test_comments_and_likes(auth_client):
+    c, _ = auth_client
+    resp = _create_manual_post(c, "Item para comentarios")
     post_id = resp.json()["post_id"]
 
-    # Like
     resp_like = c.post(f"/posts/{post_id}/react", data={"reaction_type": "like"})
     assert resp_like.status_code == 200
     assert resp_like.json()["likes"] == 1
 
-    # Comentário
     resp_comment = c.post(
         f"/posts/{post_id}/comments",
         data={"body": "Excelente oportunidade, aceitas troca?"},
@@ -135,21 +103,11 @@ def test_comments_and_likes(mock_upload, mock_caption, auth_client):
     assert comments[0]["body"] == "Excelente oportunidade, aceitas troca?"
 
 
-@patch("app.routers.posts.generate_caption", side_effect=_fake_caption)
-@patch("app.routers.posts.upload_and_verify", side_effect=_fake_upload)
-def test_post_editing_and_deletion(mock_upload, mock_caption, auth_client):
-    c, user_id = auth_client
-    resp = c.post(
-        "/posts",
-        data={
-            "business": "Item para editar e apagar",
-            "publish_as": "individual",
-            "contact": "841234567",
-        },
-    )
+def test_post_editing_and_deletion(auth_client):
+    c, _ = auth_client
+    resp = _create_manual_post(c, "Item para editar e apagar")
     post_id = resp.json()["post_id"]
 
-    # Editar
     resp_edit = c.post(
         f"/posts/{post_id}/editar",
         data={
@@ -167,10 +125,8 @@ def test_post_editing_and_deletion(mock_upload, mock_caption, auth_client):
     assert post_updated["theme"] == "Item Editado Com Sucesso"
     assert post_updated["price_mt"] == 2500.0
 
-    # Eliminar
     resp_del = c.post(f"/posts/{post_id}/eliminar", follow_redirects=False)
     assert resp_del.status_code == 303
-
     assert db.get_post(post_id) is None
 
 

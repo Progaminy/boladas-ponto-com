@@ -1,23 +1,30 @@
-"""Upload para o Backblaze B2 nas chaves exatas exigidas pelo concurso
-(posts/<post_id>/...), com verificação real pós-upload. Nunca marca um
-ficheiro como armazenado sem confirmar via head() no bucket."""
+"""Armazenamento de ficheiros no Backblaze B2 via API S3 compatível."""
 
 import hashlib
 from dataclasses import dataclass
+from urllib.parse import quote
 
-from genblaze_s3 import S3StorageBackend
+import boto3
+from botocore.config import Config
+from botocore.exceptions import ClientError
 
 from app.config import (
     B2_APP_KEY,
     B2_BUCKET,
     B2_KEY_ID,
     B2_MEDIA_PREFIX,
+    B2_REGION,
     b2_configured,
 )
 
 
 class StorageError(RuntimeError):
-    """Levantado quando um upload não pôde ser confirmado no B2."""
+    pass
+
+
+@dataclass(frozen=True)
+class ObjectMeta:
+    size: int
 
 
 @dataclass(frozen=True)
@@ -29,19 +36,59 @@ class UploadedFile:
     url: str
 
 
-_backend: S3StorageBackend | None = None
+class B2StorageBackend:
+    def __init__(self) -> None:
+        endpoint = f"https://s3.{B2_REGION}.backblazeb2.com"
+        self.client = boto3.client(
+            "s3",
+            endpoint_url=endpoint,
+            region_name=B2_REGION,
+            aws_access_key_id=B2_KEY_ID,
+            aws_secret_access_key=B2_APP_KEY,
+            config=Config(signature_version="s3v4"),
+        )
+
+    def put(self, key: str, data: bytes, *, content_type: str) -> None:
+        self.client.put_object(
+            Bucket=B2_BUCKET,
+            Key=key,
+            Body=data,
+            ContentType=content_type,
+        )
+
+    def head(self, key: str) -> ObjectMeta | None:
+        try:
+            response = self.client.head_object(Bucket=B2_BUCKET, Key=key)
+        except ClientError as exc:
+            code = str(exc.response.get("Error", {}).get("Code", ""))
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                return None
+            raise
+        return ObjectMeta(size=int(response.get("ContentLength", 0)))
+
+    def get(self, key: str) -> bytes:
+        response = self.client.get_object(Bucket=B2_BUCKET, Key=key)
+        return response["Body"].read()
+
+    def delete(self, key: str) -> None:
+        self.client.delete_object(Bucket=B2_BUCKET, Key=key)
+
+    def get_durable_url(self, key: str) -> str:
+        escaped = quote(key, safe="/")
+        return f"https://{B2_BUCKET}.s3.{B2_REGION}.backblazeb2.com/{escaped}"
 
 
-def get_backend() -> S3StorageBackend:
+_backend: B2StorageBackend | None = None
+
+
+def get_backend() -> B2StorageBackend:
     global _backend
     if not b2_configured():
         raise StorageError(
             "Backblaze B2 não está configurado (B2_KEY_ID/B2_APP_KEY/B2_BUCKET em falta)."
         )
     if _backend is None:
-        _backend = S3StorageBackend.for_backblaze(
-            B2_BUCKET, key_id=B2_KEY_ID, app_key=B2_APP_KEY
-        )
+        _backend = B2StorageBackend()
     return _backend
 
 
@@ -62,18 +109,9 @@ def sha256_hex(data: bytes) -> str:
 
 
 def upload_and_verify(key: str, data: bytes, content_type: str) -> UploadedFile:
-    """Envia `data` para `key` no B2 e confirma o upload voltando a descarregar
-    o objeto e recalculando o SHA-256 sobre o conteúdo realmente armazenado —
-    não basta existir e ter o tamanho certo, o hash local e o hash do B2 têm
-    de bater certo. Levanta StorageError em qualquer divergência: nunca finge
-    uma verificação que não foi feita."""
     backend = get_backend()
     local_digest = sha256_hex(data)
 
-    # O SDK levanta a sua própria StorageError (genblaze_core.exceptions), que
-    # não é a nossa. Sem esta tradução, uma recusa do B2 — por exemplo uma
-    # chave sem permissão para este prefixo — escapava a todos os `except
-    # StorageError` dos chamadores e chegava ao utilizador como um 500.
     try:
         backend.put(key, data, content_type=content_type)
         meta = backend.head(key)
@@ -83,19 +121,21 @@ def upload_and_verify(key: str, data: bytes, content_type: str) -> UploadedFile:
         raise StorageError(f"O Backblaze B2 recusou o envio de {key}: {exc}") from exc
 
     if meta is None:
-        raise StorageError(f"Upload não confirmado: {key} não existe no B2 após o put().")
+        raise StorageError(f"Upload não confirmado: {key} não existe no B2 após o envio.")
     if meta.size != len(data):
         raise StorageError(
-            f"Upload corrompido: {key} tem {meta.size} bytes no B2, "
-            f"esperado {len(data)}."
+            f"Upload corrompido: {key} tem {meta.size} bytes no B2, esperado {len(data)}."
         )
 
-    remote_bytes = backend.get(key)
+    try:
+        remote_bytes = backend.get(key)
+    except Exception as exc:
+        raise StorageError(f"Não foi possível confirmar {key} no B2: {exc}") from exc
+
     remote_digest = sha256_hex(remote_bytes)
     if remote_digest != local_digest:
         raise StorageError(
-            f"Upload corrompido: SHA-256 de {key} no B2 ({remote_digest}) não "
-            f"corresponde ao SHA-256 enviado ({local_digest})."
+            f"Upload corrompido: SHA-256 de {key} no B2 não corresponde ao ficheiro enviado."
         )
 
     return UploadedFile(

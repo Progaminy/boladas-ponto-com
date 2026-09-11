@@ -5,14 +5,14 @@ from pydantic import BaseModel, Field, field_validator
 
 class PostStatus(str, Enum):
     PENDING = "pending"
-    GENERATING = "generating"
-    UPLOADING = "uploading"
+    GENERATING = "generating"  # estado legado mantido para dados antigos
+    UPLOADING = "uploading"  # estado legado mantido para dados antigos
     COMPLETED = "completed"
     FAILED = "failed"
 
 
 class ListingStatus(str, Enum):
-    """Disponibilidade comercial de um anúncio já processado."""
+    """Disponibilidade comercial de um anúncio."""
 
     ACTIVE = "active"
     PAUSED = "paused"
@@ -20,8 +20,8 @@ class ListingStatus(str, Enum):
 
 
 class PublisherType(str, Enum):
-    BUSINESS = "business"  # empresa/marca com nome próprio
-    INDIVIDUAL = "individual"  # utilizador simples, sem marca
+    BUSINESS = "business"
+    INDIVIDUAL = "individual"
 
 
 class PostInput(BaseModel):
@@ -30,19 +30,21 @@ class PostInput(BaseModel):
     category: str = Field(default="venda_informal")
     publisher_type: PublisherType = PublisherType.INDIVIDUAL
     brand_name: str | None = Field(default=None, max_length=120)
+
+    # Campos legados continuam preenchidos pelo backend para manter
+    # compatibilidade com o schema existente, mas não fazem parte do formulário.
     target_audience: str = Field(..., min_length=2, max_length=200)
     objective: str = Field(..., min_length=2, max_length=200)
     tone: str = Field(..., min_length=2, max_length=60)
     language: str = Field(default="pt", min_length=2, max_length=10)
     call_to_action: str = Field(..., min_length=2, max_length=120)
+
     price_mt: float | None = Field(default=None, ge=0)
     currency: str = Field(default="MZN", max_length=10)
     location: str | None = Field(default=None, max_length=160)
     contact: str = Field(..., min_length=4, max_length=60)
     phone_prefix: str | None = Field(default=None, max_length=10)
     color_reference: str | None = Field(default=None, max_length=60)
-    # Descrição do produto: escrita à mão, gerada pela IA a partir de uma
-    # explicação, ou gerada a partir de uma fotografia real.
     description: str | None = Field(default=None, max_length=600)
     description_source: str | None = Field(default=None, max_length=20)
 
