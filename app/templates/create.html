@@ -2,7 +2,7 @@
 {% block title %}Criar anúncio — Boladas-ponto-com{% endblock %}
 {% block content %}
 <h1>Criar anúncio</h1>
-<p class="subtitle">Publica o produto com 1 ou 2 fotos reais. A IA pode ajudar apenas com a descrição e a legenda; o Boladas não gera imagens para o anúncio.</p>
+<p class="subtitle">Publica o produto diretamente, com descrição escrita por ti e 1 ou 2 fotos reais.</p>
 
 <form id="post-form">
   <div class="field">
@@ -19,19 +19,21 @@
       {% endfor %}
     </select>
     {% if not businesses %}
-    <p class="muted" style="margin:0.3rem 0 0; font-size:0.85rem;">Não tens nenhuma empresa registada. <a href="/empresa/nova">Registar empresa</a> se quiseres publicar em nome de um negócio.</p>
+    <p class="muted" style="margin:0.3rem 0 0; font-size:0.85rem;">
+      Não tens nenhuma empresa registada. <a href="/empresa/nova">Registar empresa</a> se quiseres publicar em nome de um negócio.
+    </p>
     {% endif %}
   </div>
 
   <div class="field">
-    <label for="business">O que estás a vender/oferecer? *</label>
-    <input type="text" id="business" name="business" required maxlength="120" placeholder="Ex: Camisa vintage tamanho M" />
+    <label for="business">Produto ou serviço *</label>
+    <input type="text" id="business" name="business" required maxlength="120" placeholder="Ex: Camisa de algodão tamanho M" />
   </div>
 
   <fieldset class="describe-box">
     <legend>📷 Fotos do produto *</legend>
     <p class="muted describe-hint">
-      Escolhe 1 ou 2 fotos reais da galeria ou da câmara. A primeira foto será a imagem principal do anúncio.
+      Escolhe 1 ou 2 fotos reais da galeria ou da câmara. A primeira será a foto principal.
     </p>
     <div class="field">
       <label for="post_photos">Adicionar fotos</label>
@@ -44,46 +46,19 @@
     <div id="post-photo-preview" style="display:flex; gap:0.55rem; flex-wrap:wrap;"></div>
   </fieldset>
 
-  <fieldset class="describe-box">
-    <legend>Descrição do produto</legend>
-    <p class="muted describe-hint">
-      Escreve à mão, ou deixa a IA escrever por ti a partir de uma foto real
-      do produto ou de uma explicação rápida à tua maneira.
-    </p>
-
-    <div class="field">
-      <label for="description">Descrição</label>
-      <textarea id="description" name="description" rows="3" maxlength="600"
-                placeholder="Ex: Camisa de algodão, tamanho M, usada duas vezes, sem defeitos."></textarea>
-      <input type="hidden" id="description_source" name="description_source" value="" />
-    </div>
-
-    <details class="describe-ai">
-      <summary>Pedir à IA para escrever a descrição</summary>
-
-      <div class="field">
-        <label for="explicacao">Explica por palavras tuas (opcional se enviares foto)</label>
-        <textarea id="explicacao" rows="2" maxlength="1000"
-                  placeholder="Ex: é uma camisa que comprei e só usei duas vezes, está como nova"></textarea>
-      </div>
-
-      <div class="field">
-        <label for="foto_descricao">Ou envia uma foto para a IA descrever</label>
-        <input type="file" id="foto_descricao" accept="image/jpeg,image/png,image/webp" />
-      </div>
-
-      <button type="button" id="describe-btn">Gerar descrição</button>
-      <span id="describe-status" class="describe-status"></span>
-    </details>
-  </fieldset>
+  <div class="field">
+    <label for="description">Descrição</label>
+    <textarea id="description" name="description" rows="4" maxlength="600"
+              placeholder="Descreve o estado, tamanho, características, condições de venda, etc."></textarea>
+  </div>
 
   <div id="category-individual-badge" class="badge-informal" style="background:#374151; color:#F3F4F6; padding:0.6rem 0.9rem; border-radius:8px; margin-bottom:1rem; border:1px solid #4B5563;">
-    📌 <strong>Categoria Automática:</strong> Venda Pessoal / Mercado Informal
+    📌 <strong>Categoria:</strong> Venda Pessoal / Mercado Informal
   </div>
 
   <div id="category-business-fields" style="display:none;">
     <div class="field">
-      <label for="category">Categoria da Empresa *</label>
+      <label for="category">Categoria da empresa *</label>
       <select id="category" name="category">
         {% for c in categories %}
         <option value="{{ c.slug }}">{{ c.label }}</option>
@@ -91,25 +66,21 @@
       </select>
     </div>
     <div class="field">
-      <label for="category_custom">Ou escreve uma categoria diferente (opcional)</label>
-      <input type="text" id="category_custom" name="category_custom" maxlength="60" placeholder="Se a tua categoria não estiver na lista" />
-      <p class="muted" style="margin:0.3rem 0 0; font-size:0.85rem;">
-        Não sabes qual escolher? <a href="#" id="suggest-category-link">Sugerir automaticamente a partir da descrição</a>
-        <span id="suggest-category-status"></span>
-      </p>
+      <label for="category_custom">Outra categoria (opcional)</label>
+      <input type="text" id="category_custom" name="category_custom" maxlength="60" placeholder="Escreve apenas se a categoria não estiver na lista" />
     </div>
   </div>
 
   <div class="field-row">
     <div class="field">
-      <label for="price_mt">Preço & Moeda</label>
-      <div style="display: flex; gap: 0.5rem;">
-        <select id="currency" name="currency" style="width: 140px; background: #111827; border: 1px solid #374151; color: #F9FAFB;">
+      <label for="price_mt">Preço e moeda</label>
+      <div style="display:flex; gap:0.5rem;">
+        <select id="currency" name="currency" style="width:140px; background:#111827; border:1px solid #374151; color:#F9FAFB;">
           {% for curr in currencies %}
           <option value="{{ curr.code }}" {% if curr.code == 'MZN' %}selected{% endif %}>{{ curr.symbol }} ({{ curr.code }})</option>
           {% endfor %}
         </select>
-        <input type="number" id="price_mt" name="price_mt" min="0" step="0.01" placeholder="0.00" style="flex: 1;" />
+        <input type="number" id="price_mt" name="price_mt" min="0" step="0.01" placeholder="0.00" style="flex:1;" />
       </div>
     </div>
     <div class="field">
@@ -117,57 +88,27 @@
       <input type="text" id="location" name="location" maxlength="160" placeholder="Bairro, cidade" />
     </div>
   </div>
+
   <div class="field">
     <label for="contact">Contacto (telefone / WhatsApp) *</label>
-    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-      <select id="phone_prefix" name="phone_prefix" style="width: 190px; background: #111827; border: 1px solid #374151; color: #F9FAFB;">
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <select id="phone_prefix" name="phone_prefix" style="width:190px; background:#111827; border:1px solid #374151; color:#F9FAFB;">
         {% for p in phone_prefixes %}
         <option value="{{ p.code }}" {% if p.code == '+258' %}selected{% endif %}>{{ p.flag }} {{ p.country }}</option>
         {% endfor %}
       </select>
-      <input type="text" id="contact" name="contact" required maxlength="60" placeholder="84 123 4567" style="flex: 1; min-width: 200px;" />
+      <input type="text" id="contact" name="contact" required maxlength="60" placeholder="84 123 4567" style="flex:1; min-width:200px;" />
     </div>
   </div>
 
-  <details id="advanced-options">
-    <summary style="cursor:pointer;">Opções avançadas (legenda personalizada)</summary>
-    <div class="field" style="margin-top:0.8rem;">
-      <label for="theme">Tema ou ideia do post</label>
-      <input type="text" id="theme" name="theme" maxlength="200" placeholder="Deixa em branco para usar o nome do produto" />
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="target_audience">Público-alvo</label>
-        <input type="text" id="target_audience" name="target_audience" maxlength="200" value="Pessoas interessadas em comprar" />
-      </div>
-      <div class="field">
-        <label for="objective">Objetivo da publicação</label>
-        <input type="text" id="objective" name="objective" maxlength="200" value="Vender rapidamente" />
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="tone">Tom da comunicação</label>
-        <input type="text" id="tone" name="tone" maxlength="60" value="casual e direto" />
-      </div>
-      <div class="field">
-        <label for="language">Idioma</label>
-        <select id="language" name="language">
-          <option value="pt">Português</option>
-          <option value="en">English</option>
-        </select>
-      </div>
-    </div>
-    <div class="field">
-      <label for="call_to_action">Chamada para ação</label>
-      <input type="text" id="call_to_action" name="call_to_action" maxlength="120" value="Contacta-me já!" />
-    </div>
-  </details>
+  <div class="field">
+    <label for="theme">Título do anúncio (opcional)</label>
+    <input type="text" id="theme" name="theme" maxlength="200" placeholder="Se deixares vazio, usamos o nome do produto" />
+  </div>
 
   <button type="submit" id="submit-btn">Publicar anúncio</button>
   <div id="status-banner" class="status-banner"></div>
 </form>
-
 {% endblock %}
 
 {% block scripts %}
@@ -178,7 +119,6 @@
   const categoryFields = document.getElementById("category-business-fields");
   const locationInput = document.getElementById("location");
   const contactInput = document.getElementById("contact");
-  const advanced = document.getElementById("advanced-options");
 
   function updateCategoryVisibility() {
     if (publishAs.value === "individual") {
@@ -191,47 +131,11 @@
       if (opt && opt.dataset.category) categorySelect.value = opt.dataset.category;
       if (opt && opt.dataset.location && !locationInput.value) locationInput.value = opt.dataset.location;
       if (opt && opt.dataset.contact && !contactInput.value) contactInput.value = opt.dataset.contact;
-      advanced.open = true;
     }
   }
 
   publishAs.addEventListener("change", updateCategoryVisibility);
   updateCategoryVisibility();
-
-  document.getElementById("post-form").addEventListener("submit", () => {
-    const themeInput = document.getElementById("theme");
-    const businessInput = document.getElementById("business");
-    if (!themeInput.value.trim()) themeInput.value = businessInput.value;
-  }, true);
-
-  const suggestLink = document.getElementById("suggest-category-link");
-  const suggestStatus = document.getElementById("suggest-category-status");
-  const businessInputEl = document.getElementById("business");
-  const categoryCustomInput = document.getElementById("category_custom");
-
-  suggestLink.addEventListener("click", async (ev) => {
-    ev.preventDefault();
-    if (!businessInputEl.value.trim()) {
-      suggestStatus.textContent = " — escreve primeiro o que estás a vender.";
-      return;
-    }
-    suggestStatus.textContent = " a pensar...";
-    try {
-      const formData = new FormData();
-      formData.set("description", businessInputEl.value);
-      const resp = await fetch("/categoria/sugerir", { method: "POST", body: formData });
-      const data = await resp.json();
-      if (resp.ok) {
-        categorySelect.value = data.slug;
-        categoryCustomInput.value = "";
-        suggestStatus.textContent = ` — sugerido: ${data.label}`;
-      } else {
-        suggestStatus.textContent = ` — ${data.error}`;
-      }
-    } catch (err) {
-      suggestStatus.textContent = " — erro de rede.";
-    }
-  });
 </script>
 <script src="/static/js/app.js"></script>
 {% endblock %}
