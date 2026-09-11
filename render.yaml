@@ -20,20 +20,6 @@ services:
         value: us-east-005
       - key: B2_MEDIA_PREFIX
         sync: false
-      - key: AI_PROVIDER
-        value: auto
-      - key: VERTEX_EXPRESS_API_KEY
-        sync: false
-      - key: GEMINI_IMAGE_MODEL
-        value: gemini-2.5-flash-image
-      - key: GEMINI_CHAT_MODEL
-        value: gemini-flash-latest
-      - key: GMI_API_KEY
-        sync: false
-      - key: GMI_IMAGE_MODEL
-        value: seedream-5.0-lite
-      - key: GMI_CHAT_MODEL
-        value: deepseek-ai/DeepSeek-V3-0324
       - key: SESSION_SECRET_KEY
         generateValue: true
       - key: SESSION_COOKIE_SECURE
