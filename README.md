@@ -63,6 +63,71 @@ ADMIN_EMAIL=
 
 Nunca publiques senhas ou chaves no repositório.
 
+## Backblaze B2 — configuração e troca de chaves
+
+O Boladas guarda fotos e vídeos no bucket `pensador-sem-fronteiras-media` usando a API S3 compatível do Backblaze B2.
+
+As credenciais usadas pela aplicação são:
+
+- `B2_KEY_ID`: Key ID da Application Key;
+- `B2_APP_KEY`: Application Key secreta;
+- `B2_BUCKET`: nome exato do bucket;
+- `B2_REGION`: região do bucket, atualmente `us-east-005`;
+- `B2_MEDIA_PREFIX`: prefixo opcional. Deixa vazio quando a chave tem acesso ao bucket inteiro.
+
+### Permissões necessárias
+
+A Application Key deve permitir ao Boladas, no bucket configurado:
+
+- enviar ficheiros;
+- ler ficheiros;
+- consultar metadados dos ficheiros;
+- eliminar ficheiros quando necessário.
+
+Se a chave estiver limitada por `File name prefix`, esse prefixo deve permitir pelo menos os caminhos usados pela aplicação, incluindo `posts/`, `users/` e `businesses/`. Se não houver necessidade de restringir por pasta, é mais simples deixar o prefixo vazio e limitar a chave apenas ao bucket `pensador-sem-fronteiras-media`.
+
+Um erro `403 Forbidden` em operações `HeadObject`, `GetObject` ou `PutObject` indica normalmente que a chave existe, mas não tem autorização suficiente para o bucket ou prefixo solicitado, ou que a chave está associada a outro bucket.
+
+### Trocar a chave no Render
+
+1. No Backblaze B2, cria uma nova **Application Key** com acesso ao bucket `pensador-sem-fronteiras-media` e com permissões de leitura e escrita necessárias para os ficheiros do Boladas.
+2. Guarda o **Key ID** e a **Application Key** no momento da criação. O Backblaze pode não voltar a mostrar a Application Key secreta depois.
+3. No Render, abre o serviço `boladas-ponto-com`.
+4. Abre **Environment**.
+5. Substitui `B2_KEY_ID` pelo novo Key ID.
+6. Substitui `B2_APP_KEY` pela nova Application Key.
+7. Confirma que `B2_BUCKET=pensador-sem-fronteiras-media`.
+8. Confirma que `B2_REGION=us-east-005`.
+9. Mantém `B2_MEDIA_PREFIX` vazio, a menos que a Application Key tenha sido criada com uma restrição de prefixo compatível.
+10. Guarda as variáveis e deixa o Render reiniciar/reimplantar o serviço.
+11. Abre `/estado` e confirma que o diagnóstico do Backblaze aparece como ligado.
+12. Publica um anúncio de teste com uma foto real para confirmar leitura e escrita completas.
+
+### Trocar a chave localmente
+
+No ficheiro `.env` local, altera apenas os valores secretos:
+
+```text
+B2_KEY_ID=NOVO_KEY_ID
+B2_APP_KEY=NOVA_APPLICATION_KEY
+B2_BUCKET=pensador-sem-fronteiras-media
+B2_REGION=us-east-005
+B2_MEDIA_PREFIX=
+```
+
+Depois reinicia a aplicação.
+
+### Rotação segura
+
+Quando uma chave for substituída:
+
+1. cria primeiro a nova chave;
+2. configura e testa a nova chave no Render;
+3. confirma que fotos podem ser enviadas e abertas;
+4. só depois revoga a chave antiga no Backblaze.
+
+Nunca coloques `B2_APP_KEY` no README, `.env.example`, código-fonte, commit, issue, Pull Request ou mensagem de log. Apenas os nomes das variáveis devem aparecer no repositório.
+
 ## Executar localmente
 
 ```bash
