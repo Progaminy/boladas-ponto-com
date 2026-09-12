@@ -28,17 +28,19 @@ def check_b2() -> Check:
             detail="B2_KEY_ID / B2_APP_KEY / B2_BUCKET não estão definidos no ambiente.",
         )
 
-    from app.storage import get_backend
+    from app.storage import get_backend, post_key
 
     try:
-        # Uma consulta a uma chave inexistente é suficiente para confirmar que
-        # as credenciais conseguem chegar ao bucket sem escrever dados.
-        get_backend().head("__diagnostico_de_ligacao__")
+        # Testa uma chave dentro de posts/, exatamente o prefixo usado pelos
+        # anúncios. Isto funciona também quando a Application Key do B2 está
+        # corretamente limitada apenas a essa pasta e evita falsos 403 em
+        # chaves restritas por prefixo.
+        get_backend().head(post_key("__diagnostico__", "ligacao"))
         return Check(
             name="Backblaze B2",
             configured=True,
             ok=True,
-            detail=f"Ligado ao bucket «{B2_BUCKET}».",
+            detail=f"Ligado ao bucket «{B2_BUCKET}» com acesso ao prefixo de anúncios.",
         )
     except Exception as exc:
         return Check(
