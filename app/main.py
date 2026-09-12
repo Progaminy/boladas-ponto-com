@@ -60,6 +60,20 @@ async def lifespan(app: FastAPI):
                 f"DATABASE_STARTUP_CHECK=failed {type(exc).__name__}: {str(exc)[:500]}",
                 flush=True,
             )
+
+    # Diagnóstico seguro: não imprime chaves nem segredos. Serve para confirmar
+    # se as credenciais presentes no Render conseguem aceder ao prefixo posts/.
+    try:
+        b2_check = run_all_checks()[0]
+        print(
+            f"B2_STARTUP_CHECK={b2_check.state} {b2_check.detail[:500]}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(
+            f"B2_STARTUP_CHECK=failed {type(exc).__name__}: {str(exc)[:500]}",
+            flush=True,
+        )
     yield
 
 
